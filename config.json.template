@@ -1,0 +1,22 @@
+{
+  "oauth": {
+    "client_id": "<your client_id>",
+    "domain": "circuitsandbox.net"
+  },
+  "dev": {
+    "oauth": {
+      "client_id": "<your client credentials client_id>",
+      "client_secret": "<your client credentials client_secret>",
+      "domain": "circuitsandbox.net"
+    }
+  },
+  "webhook": {
+    "users": { 
+      "admin": "mysecret"
+    }
+  },
+  "logging": {
+    "nodeapp": "trace",
+    "circuitsdk": "info"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "circuit-google-assistant",
+  "version": "0.0.1",
+  "description": "Google Assistant integration with Circuit",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "NODE_ENV=development node index.js"
+  },
+  "dependencies": {
+    "actions-on-google": "^1.0.5",
+    "body-parser": "^1.16.0",
+    "bunyan": "^1.8.5",
+    "circuit": "file:circuit.tgz",
+    "ejs": "2.4.1",
+    "express": "4.13.3",
+    "express-basic-auth": "^0.2.3",
+    "fuse.js": "^2.6.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/circuit/circuit-google-assistant"
+  },
+  "keywords": [
+    "Google Assistant",
+    "Google Home",
+    "Circuit",
+    "Unify"
+  ],
+  "license": "MIT"
+}
