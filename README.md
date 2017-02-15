@@ -74,7 +74,7 @@ View node app and Circuit SDK bunyan logs in logs subfolder.
 
 ### Action on Google - Web Simulator
 
-<img src="images/image.png" max-width="600px">
+<img src="images/image.png" width="600px">
 
 
 
