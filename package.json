@@ -12,7 +12,6 @@
     "body-parser": "^1.16.0",
     "bunyan": "^1.8.5",
     "circuit": "file:circuit.tgz",
-    "ejs": "2.4.1",
     "express": "4.13.3",
     "express-basic-auth": "^0.2.3",
     "fuse.js": "^2.6.1"
