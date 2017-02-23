@@ -22,6 +22,7 @@
 
 'use strict';
 
+const util = require('util');
 const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
 const log = require('./logger').child({module: 'va'});
 
@@ -29,7 +30,7 @@ function init(app) {
   log.info(`Initialize va routes`);
 
   app.post('/', (req, res) => {
-    log.trace('Request:', req.body);
+    log.trace('Request:', util.inspect(req.body, false, 5));
     const assistant = new ApiAiAssistant({request: req, response: res});
     const sessionId = req.body.sessionId;
     let circuit = req.circuit;
@@ -41,27 +42,35 @@ function init(app) {
 
     // The action names of the API.AI intents
     const WELCOME_INTENT = 'welcome';
-    const FIND_USER_INTENT = 'find.user';
-    const CALL_USER_INTENT = 'call.user';
+
+    const CALL_USER_FIND_USER_INTENT = 'find.user';
+    const CALL_USER_INITIATE_INTENT = 'call.user.initiate';
+    const CALL_USER_CONTEXT = 'call-user';
 
     const SEND_MESSAGE_FIND_USER_INTENT = 'send.message.find.user';
     const SEND_MESSAGE_CONFIRM_TEXT_INTENT = 'send.message.confirm.text';
     const SEND_MESSAGE_SEND_INTENT = 'send.message.send';
-
-    const MEETINGS_LIST_INTENT = 'meetings.list';
-
-    const TRY_AGAIN = 'try-again';
-    const SINGLE_USER_FOUND_CONTEXT = 'single-user-found';
     const SEND_MESSAGE_CONTEXT = 'send-message';
     const SEND_MESSAGE_CONFIRM_CONTEXT = 'send-message-confirm';
 
+    const MEETINGS_LIST_INTENT = 'meetings.list';
+    const MEETING_JOIN_INTENT = 'meeting.join';
+
+    const TRY_AGAIN = 'try-again';
+
     const USER_CONFIRM_CONTEXT = 'user-confirm';
     
+    /**************************************************/
+    /* Welcome                                        */
+    /**************************************************/
     function sendWelcomeIntent() {
       // Handle this in node so that a circuit client can be created and users fetched
       assistant.ask(`Hi, I'm your Circuit Assistant. What would you like to do?`);
     }
   
+    /**************************************************/
+    /* Send Message                                   */
+    /**************************************************/
     function sendMessageFindUserIntent (assistant) {
       let name = assistant.getArgument(NAME_ARGUMENT);
       log.info(`[${SEND_MESSAGE_FIND_USER_INTENT}] name: ${name}`);
@@ -86,7 +95,6 @@ function init(app) {
         ask += ` and ${users[users.length - 1].displayName}`;
         assistant.ask(ask);
       } else {
-        assistant.setContext(SEND_MESSAGE_CONTEXT);
         assistant.setContext(TRY_AGAIN);
         assistant.ask(`Found ${matches.length} users for ${name}. Try to be more specific. Would you like to try again?`);
       }
@@ -112,18 +120,22 @@ function init(app) {
       });
     }
 
-    function findUserIntent (assistant) {
+    /**************************************************/
+    /* Call User                                      */
+    /**************************************************/
+    function callUserFindUserIntent (assistant) {
       let name = assistant.getArgument(NAME_ARGUMENT);
-      log.info(`[${FIND_USER_INTENT}] name: ${name}`);
+      log.info(`[${CALL_USER_FIND_USER_INTENT}] name: ${name}`);
 
+      let user;
       let matches = circuit.search(name);
       if (matches.length === 0) {
         assistant.setContext(TRY_AGAIN);
         assistant.ask(`Could not find user ${name}. Would you like to try again?`);
       } else if (matches.length === 1) {
-        let user = circuit.users[matches[0]];
-        assistant.setContext(SINGLE_USER_FOUND_CONTEXT);
+        user = circuit.users[matches[0]];
         assistant.data.userId = user.userId;
+        assistant.setContext(USER_CONFIRM_CONTEXT, 1, {user: user.displayName});
         assistant.ask(`Found ${user.displayName}. Would you like to start the call?`);
       } else  if (matches.length <= 3) {
         let users = matches.map(m => {
@@ -139,9 +151,9 @@ function init(app) {
       }
     }
 
-    function callUserIntent (assistant) {
+    function callUserInitiateIntent (assistant) {
       let userId = assistant.data.userId;
-      log.info(`[${CALL_USER_INTENT}] userId: ${userId}`);
+      log.info(`[${CALL_USER_INITIATE_INTENT}] userId: ${userId}`);
 
       let user = circuit.users[userId];
       circuit.sendClickToCallRequest(user.emailAddress, null, null, true)
@@ -155,6 +167,9 @@ function init(app) {
       });
     }
 
+    /**************************************************/
+    /* Join conference                                */
+    /**************************************************/
     function meetingsListIntent (assistant) {
       log.info(`[${MEETINGS_LIST_INTENT}]`);
 
@@ -166,7 +181,9 @@ function init(app) {
         } else if (calls.length === 1) {
           circuit.getConversationById(calls[0].convId)
           .then(conv => {
-            assistant.tell(`You have one meeting ongoing and its on conversation ${conv.topic}. Would you like to join?`);
+            assistant.data.callId = conv.rtcSessionId;
+            assistant.setContext(USER_CONFIRM_CONTEXT);
+            assistant.ask(`You have one meeting ongoing and its on conversation ${conv.topic}. Would you like to join?`);
           })
         } else {
           let reply = `You have ${calls.length} meetings ongoing.`;
@@ -194,6 +211,24 @@ function init(app) {
       });
     }
 
+    function meetingJoinIntent (assistant) {
+      let callId = assistant.data.callId;
+      log.info(`[${MEETING_JOIN_INTENT}] convId: ${callId}`);
+
+      circuit.getDevices()
+      .then(devices => {
+        let device = devices.find(d => {
+          return d.clientId !== circuit.user.clientId;
+        });
+        return device.clientId;
+      })
+      .then(circuit.joinConference.bind(null, callId, null))
+      .then(_ => assistant.tell(`Ok, joining the conference`))
+      .catch(_ => {
+          assistant.tell(`Make sure you are logged on with a Circuit client.`);
+      });
+    }
+
     // Action map
     let actionMap = new Map();
 
@@ -203,10 +238,11 @@ function init(app) {
     actionMap.set(SEND_MESSAGE_CONFIRM_TEXT_INTENT, sendMessageConfirmTextIntent);
     actionMap.set(SEND_MESSAGE_SEND_INTENT, sendMessageSendIntent);
 
-    actionMap.set(FIND_USER_INTENT, findUserIntent);
-    actionMap.set(CALL_USER_INTENT, callUserIntent);
+    actionMap.set(CALL_USER_FIND_USER_INTENT, callUserFindUserIntent);
+    actionMap.set(CALL_USER_INITIATE_INTENT, callUserInitiateIntent);
 
     actionMap.set(MEETINGS_LIST_INTENT, meetingsListIntent);
+    actionMap.set(MEETING_JOIN_INTENT, meetingJoinIntent);
 
     assistant.handleRequest(actionMap);
   });

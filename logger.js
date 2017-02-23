@@ -29,11 +29,6 @@ let level = config.logging && config.logging.nodeapp || 'info';
 
 module.exports = bunyan.createLogger({
     name: 'app',
-    streams: [{
-        level: level,
-        type: 'rotating-file',
-        path: 'logs/app.log',
-        period: 'daily',
-        count: 10
-    }]
+    stream: process.stdout,
+    level: level
 });

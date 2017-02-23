@@ -22,7 +22,6 @@
 
 'use strict'
 
-const bunyan = require('bunyan');
 const ApiAiAssistant = require('actions-on-google').ApiAiAssistant;
 const express = require('express');
 const bodyParser = require('body-parser');

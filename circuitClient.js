@@ -50,6 +50,10 @@ class CircuitClient {
     // Function bindings
     this.search = this.fuse.search.bind(this.fuse);
     this.sendClickToCallRequest = this.client.sendClickToCallRequest;
+    this.getStartedCalls = this.client.getStartedCalls;
+    this.getConversationById = this.client.getConversationById;
+    this.getDevices = this.client.getDevices;
+    this.joinConference = this.client.joinConference;
 
     // Properties
     Object.defineProperty(this, 'user', {
@@ -110,7 +114,7 @@ class CircuitClient {
     .then(convs => {
       let userIds = [];
       convs = convs.sort((a, b) => {
-        return a.participants < b.participants;
+        return a.participants.length - b.participants.length;
       });
       convs.forEach(c => {
         c.participants.forEach(p => {
