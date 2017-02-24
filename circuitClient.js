@@ -25,16 +25,10 @@ class CircuitClient {
       id: 'userId'
     });
 
-    // Create logger
     Circuit.setLogger(bunyan.createLogger({
         name: 'sdk',
-        streams: [{
-            level: sdkLogLevel,
-            type: 'rotating-file',
-            path: 'logs/sdk.log',
-            period: 'daily',
-            count: 10
-        }]
+        stream: process.stdout,
+        level: sdkLogLevel
     }));
 
     // Add peerUserId attribute for direct conversations
