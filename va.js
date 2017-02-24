@@ -145,6 +145,7 @@ function init(app) {
         let firstUsers = users.splice(0, users.length - 2).map(u => {return u.displayName;});
         ask += firstUsers.join(', ');
         ask += ` and ${users[users.length - 1].displayName}`;
+        assistant.ask(ask);  
       } else {
         assistant.setContext(TRY_AGAIN);
         assistant.ask(`Found ${matches.length} users for ${name}. Try to be more specific. Would you like to try again?`);
