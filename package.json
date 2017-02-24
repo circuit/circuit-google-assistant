@@ -8,7 +8,7 @@
     "dev": "NODE_ENV=development node index.js"
   },
   "dependencies": {
-    "actions-on-google": "^1.0.5",
+    "actions-on-google": "^1.0.7",
     "body-parser": "^1.16.0",
     "bunyan": "^1.8.5",
     "circuit": "file:circuit.tgz",

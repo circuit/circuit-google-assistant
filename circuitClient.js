@@ -97,6 +97,17 @@ class CircuitClient {
     });
   }
 
+  /**
+   * searchByDisplayName
+   */
+  searchByDisplayName(query, list) {
+    let fuse = new Fuse(list, {
+      threshold: 0.3,
+      keys: ['displayName'],
+      id: 'userId'
+    });
+    return fuse.search(query);
+  }
 
   /////////////////////////////////////
   /// Private functions

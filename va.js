@@ -35,68 +35,102 @@ function init(app) {
     const sessionId = req.body.sessionId;
     let circuit = req.circuit;
 
-
+    // Argument names
     const NAME_ARGUMENT = 'name';
     const TEXT_ARGUMENT = 'text';
     const USER_ID_ARGUMENT = 'userId';
 
-    // The action names of the API.AI intents
+    // Common intents and contexts
     const WELCOME_INTENT = 'welcome';
-
-    const CALL_USER_FIND_USER_INTENT = 'find.user';
+    const FIND_USER_INTENT = 'find.user';
+    const TRY_AGAIN = 'try-again';
+    const USER_SPECIFY_CONTEXT = 'user-specify';
+    const USER_CONFIRM_CONTEXT = 'user-confirm';
+    
+    // Call user intents and context
     const CALL_USER_INITIATE_INTENT = 'call.user.initiate';
+    const CALL_USER_SPECIFY_INTENT = 'call.user.specify';
     const CALL_USER_CONTEXT = 'call-user';
 
-    const SEND_MESSAGE_FIND_USER_INTENT = 'send.message.find.user';
+    // Send message intents and context
     const SEND_MESSAGE_CONFIRM_TEXT_INTENT = 'send.message.confirm.text';
+    const SEND_MESSAGE_SPECIFY_INTENT = 'send.message.specify';
     const SEND_MESSAGE_SEND_INTENT = 'send.message.send';
     const SEND_MESSAGE_CONTEXT = 'send-message';
     const SEND_MESSAGE_CONFIRM_CONTEXT = 'send-message-confirm';
 
+    // Join conference intents and context
     const MEETINGS_LIST_INTENT = 'meetings.list';
     const MEETING_JOIN_INTENT = 'meeting.join';
 
-    const TRY_AGAIN = 'try-again';
 
-    const USER_CONFIRM_CONTEXT = 'user-confirm';
-    
     /**************************************************/
-    /* Welcome                                        */
+    /* Common Intents                                 */
     /**************************************************/
     function sendWelcomeIntent() {
       // Handle this in node so that a circuit client can be created and users fetched
       assistant.ask(`Hi, I'm your Circuit Assistant. What would you like to do?`);
     }
   
-    /**************************************************/
-    /* Send Message                                   */
-    /**************************************************/
-    function sendMessageFindUserIntent (assistant) {
+    /**
+     * Find a user and handle finding none, 1, 2-4 or more users.
+     * Function is context aware and used for different use cases.
+     */
+    function findUserIntent(assistant) {
       let name = assistant.getArgument(NAME_ARGUMENT);
-      log.info(`[${SEND_MESSAGE_FIND_USER_INTENT}] name: ${name}`);
+      log.info(`[${FIND_USER_INTENT}] name: ${name}`);
+
+      let contexts = assistant.getContexts().map(c => { return c.name; });
+      let isSendMessageContext = contexts.indexOf(SEND_MESSAGE_CONTEXT) >= 0;
+      let isCallUserContext = contexts.indexOf(CALL_USER_CONTEXT) >= 0;
 
       let user;
-      let matches = circuit.search(name); 
+      let matches = circuit.search(name);
       if (matches.length === 0) {
-        assistant.ask(`Cannot find anybody called ${name}.`);
+        assistant.setContext(TRY_AGAIN);
+        assistant.ask(`Could not find user ${name}. Would you like to try again?`);
       } else if (matches.length === 1) {
         user = circuit.users[matches[0]];
         assistant.data.userId = user.userId;
         assistant.setContext(USER_CONFIRM_CONTEXT, 1, {user: user.displayName});
-        assistant.ask(`Found ${user.displayName}. Is this correct?`);
-      } else  if (matches.length <= 3) {
-        assistant.setContext(SEND_MESSAGE_CONTEXT);
-        let users = matches.map(m => {
-          return circuit.users[m];
-        });
-        let ask = `Found ${users.length} users.`;
-        let firstUsers = users.splice(0, users.length - 2).map(u => {return u.displayName;});
+        let ask = `Found ${user.displayName}.`;
+        if (isSendMessageContext) {
+          ask += ` Would you like to start the call?`;
+        } else if (isCallUserContext) {
+          ask += ` Is this correct?`;
+        }
+        assistant.ask(ask);
+      } else  if (matches.length <= 4) {
+        assistant.setContext(USER_SPECIFY_CONTEXT);
+        let users = matches.map(m => { return circuit.users[m]; });
+        assistant.data.usermatches = users;
+        let ask = `Found `;
+        let firstUsers = users.slice(0, users.length - 1).map(u => {return u.displayName;});
         ask += firstUsers.join(', ');
-        ask += ` and ${users[users.length - 1].displayName}`;
+        ask += ` and ${users[users.length - 1].displayName}. Which one is it?`;
         assistant.ask(ask);
       } else {
         assistant.setContext(TRY_AGAIN);
         assistant.ask(`Found ${matches.length} users for ${name}. Try to be more specific. Would you like to try again?`);
+      }
+    }
+
+
+    /**************************************************/
+    /* Send Message                                   */
+    /**************************************************/
+    function sendMessageSpecifyIntent(assistant) {
+      log.info(`[${SEND_MESSAGE_SPECIFY_INTENT}]`);
+      let users = assistant.data.usermatches;
+      let query = assistant.getRawInput()
+      let matches = circuit.searchByDisplayName(query, users);
+      if (matches.length === 1) {
+        let user = circuit.users[matches[0]];
+        assistant.data.userId = user.userId;
+        assistant.setContext(USER_CONFIRM_CONTEXT, 1, {user: user.displayName});
+        assistant.ask(`${user.displayName}. Is this correct?`);
+      } else {
+        assistant.ask(`I didn't get that. Try again.`);
       }
     }
 
@@ -116,39 +150,27 @@ function init(app) {
       circuit.sendMessage(userId, assistant.data.text)
       .then(_ => {
         log.info(`[${SEND_MESSAGE_SEND_INTENT}] Message successfully from ${circuit.user.displayName} to ${user.displayName}`);
+        assistant.setContext(SEND_MESSAGE_CONTEXT, 0);
         assistant.ask(`Message sent`);
       });
     }
 
+
     /**************************************************/
     /* Call User                                      */
     /**************************************************/
-    function callUserFindUserIntent (assistant) {
-      let name = assistant.getArgument(NAME_ARGUMENT);
-      log.info(`[${CALL_USER_FIND_USER_INTENT}] name: ${name}`);
-
-      let user;
-      let matches = circuit.search(name);
-      if (matches.length === 0) {
-        assistant.setContext(TRY_AGAIN);
-        assistant.ask(`Could not find user ${name}. Would you like to try again?`);
-      } else if (matches.length === 1) {
-        user = circuit.users[matches[0]];
+    function callUserSepcify(assistant) {
+      log.info(`[${CALL_USER_SPECIFY_INTENT}]`);
+      let users = assistant.data.usermatches;
+      let query = assistant.getRawInput()
+      let matches = circuit.searchByDisplayName(query, users);
+      if (matches.length === 1) {
+        let user = circuit.users[matches[0]];
         assistant.data.userId = user.userId;
         assistant.setContext(USER_CONFIRM_CONTEXT, 1, {user: user.displayName});
-        assistant.ask(`Found ${user.displayName}. Would you like to start the call?`);
-      } else  if (matches.length <= 3) {
-        let users = matches.map(m => {
-          return circuit.users[m];
-        });
-        let ask = `Found ${users.length} users.`;
-        let firstUsers = users.splice(0, users.length - 2).map(u => {return u.displayName;});
-        ask += firstUsers.join(', ');
-        ask += ` and ${users[users.length - 1].displayName}`;
-        assistant.ask(ask);  
+        assistant.ask(`Ok. Would you like to start the call?`);
       } else {
-        assistant.setContext(TRY_AGAIN);
-        assistant.ask(`Found ${matches.length} users for ${name}. Try to be more specific. Would you like to try again?`);
+        assistant.ask(`I didn't get that. Try again.`);
       }
     }
 
@@ -158,12 +180,12 @@ function init(app) {
 
       let user = circuit.users[userId];
       circuit.sendClickToCallRequest(user.emailAddress, null, null, true)
-      .then(_ => assistant.tell(`Ok, calling ${user.firstName}`))
+      .then(_ => assistant.ask(`Ok, calling ${user.firstName}`))
       .catch(_ => {
-        if (user.phoneNumbers.length) {
-          assistant.tell(`Logon to Circuit first, or you can call ${user.firstName} yourself. The number is ${user.phoneNumbers[0].phoneNumber}.`);
+        if (user.phoneNumbers && user.phoneNumbers.length) {
+          assistant.ask(`Logon to Circuit first, or you can call ${user.firstName} yourself. The number is ${user.phoneNumbers[0].phoneNumber}.`);
         } else {
-          assistant.tell(`Logon to Circuit first and then try again.`);
+          assistant.ask(`Logon to Circuit first and then try again.`);
         }
       });
     }
@@ -234,13 +256,14 @@ function init(app) {
     let actionMap = new Map();
 
     actionMap.set(WELCOME_INTENT, sendWelcomeIntent);
+    actionMap.set(FIND_USER_INTENT, findUserIntent);
 
-    actionMap.set(SEND_MESSAGE_FIND_USER_INTENT, sendMessageFindUserIntent);
     actionMap.set(SEND_MESSAGE_CONFIRM_TEXT_INTENT, sendMessageConfirmTextIntent);
     actionMap.set(SEND_MESSAGE_SEND_INTENT, sendMessageSendIntent);
+    actionMap.set(SEND_MESSAGE_SPECIFY_INTENT, sendMessageSpecifyIntent);
 
-    actionMap.set(CALL_USER_FIND_USER_INTENT, callUserFindUserIntent);
     actionMap.set(CALL_USER_INITIATE_INTENT, callUserInitiateIntent);
+    actionMap.set(CALL_USER_SPECIFY_INTENT, callUserSepcify);
 
     actionMap.set(MEETINGS_LIST_INTENT, meetingsListIntent);
     actionMap.set(MEETING_JOIN_INTENT, meetingJoinIntent);
