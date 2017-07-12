@@ -40,7 +40,7 @@ The webhook configuration is for Basic Authentication of the webhook and is opti
     }
   },
   "webhook": {
-    "users": { 
+    "users": {
       "admin": "mysecret"
     }
   },
@@ -60,8 +60,6 @@ The node app needs to be publicly accessible for Google Home to call your webhoo
     git clone https://github.com/yourcircuit/circuit-google-assistant.git
     cd circuit-google-assistant
     npm install
-    curl "https://circuitsandbox.net/circuit.tgz" -o "circuit.tgz"
-    npm install circuit.tgz
     npm start    // development: npm start dev
 ```
 

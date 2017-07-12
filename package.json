@@ -11,7 +11,7 @@
     "actions-on-google": "^1.0.7",
     "body-parser": "^1.16.0",
     "bunyan": "^1.8.5",
-    "circuit": "file:circuit.tgz",
+    "circuit-node-sdk": "^1.2.1200",
     "express": "4.13.3",
     "express-basic-auth": "^0.2.3",
     "fuse.js": "^2.6.1"
@@ -26,5 +26,6 @@
     "Circuit",
     "Unify"
   ],
-  "license": "MIT"
+  "author": "Roger Urscheler, Unify Inc.",
+  "license": "Apache 2.0"
 }

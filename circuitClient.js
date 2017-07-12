@@ -1,7 +1,7 @@
 'use strict';
 
 const bunyan = require('bunyan');
-const Circuit = require('circuit');
+const Circuit = require('circuit-node-sdk');
 const Fuse = require('fuse.js');
 const log = require('./logger').child({module: 'circuit'});
 const config = require('./config.json');
