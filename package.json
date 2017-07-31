@@ -1,6 +1,6 @@
 {
   "name": "circuit-google-assistant",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Google Assistant integration with Circuit",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "actions-on-google": "^1.0.7",
     "body-parser": "^1.16.0",
     "bunyan": "^1.8.5",
-    "circuit-node-sdk": "^1.2.1200",
+    "circuit-sdk": "^1.2.1200",
     "express": "4.13.3",
     "express-basic-auth": "^0.2.3",
     "fuse.js": "^2.6.1"
