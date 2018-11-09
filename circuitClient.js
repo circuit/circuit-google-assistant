@@ -2,7 +2,6 @@
 
 const bunyan = require('bunyan');
 const Circuit = require('circuit-sdk');
-const Fuse = require('fuse.js');
 const log = require('./logger').child({module: 'circuit'});
 const config = require('./config.json');
 
@@ -13,17 +12,8 @@ let sdkLogLevel = config.logging && config.logging.circuitsdk || 'error';
  */
 class CircuitClient {
   constructor (credentials) {
-    this.usersHT = {};
-
     // Create client instance
     this.client = new Circuit.Client(credentials);
-
-    // Create fuse instance
-    this.fuse = new Fuse([], {
-      threshold: 0.3,
-      keys: ['firstName', 'lastName', 'displayName'],
-      id: 'userId'
-    });
 
     Circuit.setLogger(bunyan.createLogger({
         name: 'sdk',
@@ -42,35 +32,114 @@ class CircuitClient {
     }
 
     // Function bindings
-    this.search = this.fuse.search.bind(this.fuse);
     this.sendClickToCallRequest = this.client.sendClickToCallRequest;
     this.getStartedCalls = this.client.getStartedCalls;
-    this.getConversationById = this.client.getConversationById;
+    this.getConversationsByIds = this.client.getConversationsByIds;
     this.getDevices = this.client.getDevices;
     this.joinConference = this.client.joinConference;
+    this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
+    this.addTextItem = this.client.addTextItem;
 
     // Properties
     Object.defineProperty(this, 'user', {
       get: _ => { return this.client.loggedOnUser; }
     });
-
-    Object.defineProperty(this, 'users', {
-      get: _ => { return this.usersHT; }
-    });
   }
 
 
   /////////////////////////////////////
-  /// Private functions
+  /// Public functions
   /////////////////////////////////////
+
+  async searchUsers (query) {
+    const self = this;
+    return new Promise(async resolve => {
+      let searchId;
+      let userIds;
+
+      function searchResultHandler(evt) {
+        if (evt.data.searchId !== searchId) {
+          return;
+        }
+        if (!evt.data.users || !evt.data.users.length) {
+          return;
+        }
+        userIds = evt.data.users;
+      }
+
+      async function searchStatusHandler(evt) {
+        // Indicates is search is finished
+        if (evt.data.searchId !== searchId) {
+          return;
+        }
+        if (evt.data.status === 'FINISHED' || evt.data.status === 'NO_RESULT') {
+          self.client.removeEventListener('basicSearchResults', searchResultHandler);
+          self.client.removeEventListener('searchStatus', searchResultHandler);
+          if (userIds) {
+            resolve(await self.client.getUsersById(userIds));
+          } else {
+            resolve([]);
+          }
+        }
+      }
+
+      self.client.addEventListener('basicSearchResults', searchResultHandler);
+      self.client.addEventListener('searchStatus', searchStatusHandler);
+
+      searchId = await self.client.startUserSearch(query);
+    });
+  }
+
+  async searchConversationsByName(query) {
+    const self = this;
+    return new Promise(async resolve => {
+      let searchId;
+      let convIds;
+
+      function searchResultHandler(evt) {
+        if (evt.data.searchId !== searchId) {
+          return;
+        }
+        if (!evt.data.searchResults || !evt.data.searchResults.length) {
+          return;
+        }
+        console.log('basicSearchResults', evt);
+        convIds = evt.data.searchResults.filter(c => c.convId).map(c => c.convId);
+      }
+
+      async function searchStatusHandler(evt) {
+        // Indicates is search is finished
+        console.log('searchStatus', evt)
+        if (evt.data.searchId !== searchId) {
+          return;
+        }
+        if (evt.data.status === 'FINISHED' || evt.data.status === 'NO_RESULT') {
+          self.client.removeEventListener('basicSearchResults', searchResultHandler);
+          self.client.removeEventListener('searchStatus', searchResultHandler);
+          if (convIds) {
+            resolve(await self.client.getConversationsByIds(convIds));
+          } else {
+            resolve([]);
+          }
+        }
+      }
+
+      self.client.addEventListener('basicSearchResults', searchResultHandler);
+      self.client.addEventListener('searchStatus', searchStatusHandler);
+
+      searchId = await self.client.startBasicSearch([{
+        scope: Circuit.Enums.SearchScope.CONVERSATIONS,
+        searchTerm: query
+      }]);
+    });
+  }
 
   /**
    * logon
    */
   logon (accessToken) {
     return this.client.logon(accessToken ? {accessToken: accessToken} : undefined)
-    .then(user => log.info(`Logged on to Circuit: ${user.displayName}`))
-    .then(this._retrieveUsers.bind(this));
+      .then(user => log.info(`Logged on to Circuit: ${user.displayName}`))
   }
 
   /**
@@ -80,72 +149,17 @@ class CircuitClient {
     if (!this.client) {
       return Promise.resolve();
     }
-    let displayName = this.client.loggedOnUser.displayName;
+    const displayName = this.client.loggedOnUser.displayName;
     return this.client.logout()
-    .then(_ => {
-      log.info(`Logged out of Circuit: ${displayName}`)
-    })
-  }
-
-  /**
-   * sendMessage
-   */
-  sendMessage(userId, text) {
-    return this.client.getDirectConversationWithUser(userId)
-    .then(c => {
-      return this.client.addTextItem(c.convId, text);
-    });
-  }
-
-  /**
-   * searchByDisplayName
-   */
-  searchByDisplayName(query, list) {
-    let fuse = new Fuse(list, {
-      threshold: 0.3,
-      keys: ['displayName'],
-      id: 'userId'
-    });
-    return fuse.search(query);
+      .then(_ => {
+        log.info(`Logged out of Circuit: ${displayName}`)
+      });
   }
 
   /////////////////////////////////////
   /// Private functions
   /////////////////////////////////////
 
-  // Helper function to retrieve up to 50 users of most recent conversations
-  _retrieveUsers () {
-    return this.client.getConversations({numberOfConversations: 50})
-    .then(convs => {
-      let userIds = [];
-      convs = convs.sort((a, b) => {
-        return a.participants.length - b.participants.length;
-      });
-      convs.forEach(c => {
-        c.participants.forEach(p => {
-          if (userIds.indexOf(p) === -1) {
-            userIds.push(p);
-          }
-        });
-      });
-      userIds.splice(userIds.indexOf(this.client.loggedOnUser.userId), 1);
-      userIds = userIds.slice(0, Math.min(userIds.length, 50));
-      return userIds;
-    })
-    .then(this.client.getUsersById)
-    .then(users => {
-      return users.filter(u => {
-        // Exclude test accounts that use mailinator email addresses
-        return u.emailAddress.indexOf('mailinator.com') === -1;
-      });
-    })
-    .then(users => {
-      let fuseData = [];
-      users.forEach(u => this.usersHT[u.userId] = u);
-      this.fuse.set(users);
-      log.info(`Retrieved ${users.length} users`);
-    });
-  }
 }
 
 module.exports = CircuitClient;
