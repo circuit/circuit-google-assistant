@@ -1,7 +1,6 @@
 'use strict';
 
 const CLIENT_ID = 'd34edad8cda6433bb062f0671f58c232';
-const util = require('util');
 const log = require('./logger').child({module: 'va'});
 const CircuitClient = require('./circuitClient');
 
@@ -30,23 +29,23 @@ function init(express) {
     conv.ask(new Suggestions('Send a message', 'Make a call'));
   });
 
+  /**
+   * message.send
+   */
   app.intent('send.message', async (conv, {target, message}) => {
-    if (!sessions[conv.user.id]) {
-      conv.ask('There has been an error. Start over please.');
-      conv.close();
+    const circuit = await getCircuit(conv);
+    if (!circuit) {
       return;
     }
 
     target = target || conv.contexts.input['sendmessage_data'].parameters.target;
     message = message || conv.contexts.input['sendmessage_data'].parameters.message;
 
-
-    const circuit = sessions[conv.user.id].circuit;
     let users = await circuit.searchUsers(target);
     let convs = await circuit.searchConversationsByName(target);
 
     if (!users.length && !convs.length) {
-      conv.ask(`I cannot find any user or conversation called ${target}.`);
+      conv.ask(`I cannot find any user or conversation called ${target}. What's the name?`);
       return;
     }
 
@@ -73,8 +72,18 @@ function init(express) {
   });
 
   app.intent('send.message - collect.target', async conv => {
-    const circuit = sessions[conv.user.id].circuit;
+    const circuit = await getCircuit(conv);
+    if (!circuit) {
+      return;
+    }
+
     let users = await circuit.searchUsers(conv.parameters.target);
+    let convs = await circuit.searchConversationsByName(conv.parameters.target);
+    if (!users.length && !convs.length) {
+      conv.ask(`I cannot find any user or conversation called ${target}. What's the name?`);
+      return;
+    }
+
     const { convId } = users.length && await circuit.getDirectConversationWithUser(users[0].userId, true);
     const { message } = conv.contexts.input['sendmessage_data'].parameters;
     const name = users.length && users[0].displayName || convs[0].topic;
@@ -85,27 +94,168 @@ function init(express) {
   });
 
   app.intent('send.message - yes', async conv => {
-    const circuit = sessions[conv.user.id].circuit;
+    const circuit = await getCircuit(conv);
+    if (!circuit) {
+      return;
+    }
     const { message } = conv.contexts.input['sendmessage_data'].parameters;
     const { convId } = conv.contexts.input['sendmessage_send'].parameters;
     await circuit.addTextItem(convId, message);
-    conv.close(`Message sent`);
     conv.contexts.delete('sendmessage_data');
+    conv.ask('Message sent. Is there anything else I can do for you?');
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2);
   });
 
+  app.intent('send.message - no', async conv => {
+    conv.contexts.delete('sendmessage_data');
+    conv.ask('Message not sent. Is there anything else I can do for you?');
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2);
+  });
+
+  /**
+  * call.user
+  */
+  app.intent('call.user', async (conv, {target}) => {
+    const circuit = await getCircuit(conv);
+    if (!circuit) {
+      return;
+    }
+
+    let users = await circuit.searchUsers(target);
+
+    if (!users.length) {
+      conv.contexts.set('calluser_getuser', 5);
+      conv.ask(`I cannot find any user called ${target}. What's the name?`);
+      return;
+    }
+
+    if (users.length === 1) {
+      // One result found. Ask user for confirmation.
+      const name = users.length && users[0].displayName;
+      conv.ask(`<speak>Ready to call ${name}?</speak>`, new Suggestions('Yes', `No`));
+      conv.contexts.set('calluser_data', 5, {
+        email: users[0].emailAddress,
+        name: name
+      });
+      return;
+    }
+
+    // Multiple matches. Show suggestions of the first few matches.
+    users = users.slice(0, Math.min(7, users.length));
+
+    const suggestions = users.map(u => u.displayName);
+    conv.contexts.set('calluser_getuser', 5);
+
+    conv.ask(`More than one user found with name ${target}. What's the the full name?`, new Suggestions(suggestions));
+    conv.ask(new Suggestions(suggestions));
+  });
+
+  app.intent('call.user - collect target', async (conv, {target}) => {
+    const circuit = await getCircuit(conv);
+    if (!circuit) {
+      return;
+    }
+
+    let users = await circuit.searchUsers(target);
+
+    if (!users.length) {
+      conv.ask(`I cannot find any user called ${target}.`);
+      return;
+    }
+
+    if (users.length === 1) {
+      // One result found. Ask user for confirmation.
+      const name = users.length && users[0].displayName;
+      conv.ask(`<speak>Ready to call ${name}?</speak>`, new Suggestions('Yes', `No`));
+      conv.contexts.set('calluser_data', 5, {
+        email: users[0].emailAddress,
+        name: name
+      });
+      return;
+    }
+
+    // Multiple matches. Show suggestions of the first few matches.
+    users = users.slice(0, Math.min(7, users.length));
+
+    const suggestions = users.map(u => u.displayName);
+    conv.contexts.set('calluser_getuser', 5);
+
+    conv.ask(`More than one user found with name ${target}. What's the the full name?`, new Suggestions(suggestions));
+    conv.ask(new Suggestions(suggestions));
+  });
+
+  app.intent('call.user - yes', async conv => {
+    const circuit = await getCircuit(conv);
+    if (!circuit) {
+      return;
+    }
+    const device = await findWebClient(circuit);
+    const { email, name } = conv.contexts.input['calluser_data'].parameters;
+    await circuit.sendClickToCallRequest(email, null, device && device.clientId, true);
+    conv.contexts.delete('calluser_data');
+    conv.ask(`Ok, calling ${name} on your browser.`);
+    conv.close();
+  });
+
+  app.intent('call.user - no', async conv => {
+    conv.contexts.delete('calluser_data');
+    conv.ask('Is there anything else I can do for you?');
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2);
+  });
+
+  /**
+   * Common intents
+   */
+
+  app.intent('anything.else - yes', async conv => {
+    conv.followup('Welcome');
+  });
+
+  app.intent('anything.else - no', async conv => {
+    conv.ask('Good Bye');
+    conv.close();
+  });
+
+  /**
+   * Get the circuit instance from the session. Create a new session if needed
+   */
+  async function getCircuit(conv) {
+    try {
+      const session = sessions[conv.user.id] || (await createSession(conv.user));
+      return session.circuit;
+    } catch (err) {
+      conv.ask('No circuit session found. Start over please.');
+      conv.close();
+    }
+  }
 }
 
 
 function createSession(user) {
   const circuit = new CircuitClient({client_id: CLIENT_ID});
-  circuit.logon(user.access.token)
+  return circuit.logon(user.access.token)
     .then(() => {
-      sessions[user.id] = {
+      const session = {
         circuit: circuit,
         timer: setTimeout(clearSession.bind(null, user.id), SESSION_TIMEOUT)
       }
+      sessions[user.id] = session;
+      return session;
     })
     .catch(err => log.error(`Unable to logon to Circuit`, err));
+}
+
+function findWebClient(circuit) {
+  return circuit.getDevices().then(devices => {
+      return devices.find(device => {
+          return (device.clientId !== circuit.user.clientId) &&
+              ((device.clientInfo.deviceType === 'WEB') ||
+              (device.clientInfo.deviceType === 'APPLICATION' && device.clientInfo.deviceSubtype === 'DESKTOP_APP'));
+      });
+  });
 }
 
 /**
