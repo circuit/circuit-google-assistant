@@ -182,7 +182,7 @@ function init(express) {
     const suggestions = users.map(u => u.displayName);
     conv.contexts.set('calluser_getuser', 5);
 
-    conv.ask(`More than one user found with name ${target}. What's the the full name?`, new Suggestions(suggestions));
+    conv.ask(`More than one user or conversation found with name ${target}. What's the full name?`, new Suggestions(suggestions));
     conv.ask(new Suggestions(suggestions));
   });
 
