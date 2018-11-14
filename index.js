@@ -2,21 +2,12 @@
 
 const express = require('express');
 const bodyParser = require('body-parser');
-const basicAuth = require('express-basic-auth');
 const app = express();
 const va = require('./va');
-//const sessionHandler = require('./sessionHandler');
-const config = require('./config.json');
 
 // Express middleware
 app.set('port', (process.env.PORT || 8080));
 app.use(bodyParser.json({type: 'application/json'}));
-
-// Basic Auth for webhook connection to API.AI
-//config.webhook && app.use(basicAuth(config.webhook));
-
-// Circuit session middleware
-//app.use(sessionHandler());
 
 // Setup virtual assistant
 va.init(app);
