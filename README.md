@@ -38,15 +38,6 @@ The webhook configuration is for Basic Authentication of the webhook and is opti
       "client_secret": "71ee3a2a5f4549b299775420d5eaba37",
       "domain": "circuitsandbox.net"
     }
-  },
-  "webhook": {
-    "users": {
-      "admin": "mysecret"
-    }
-  },
-  "logging": {
-    "nodeapp": "trace",
-    "circuit-sdk": "info"
   }
 }
 ```
@@ -62,17 +53,6 @@ The node app needs to be publicly accessible for Google Home to call your webhoo
     npm install
     npm start    // development: npm start dev
 ```
-
-View node app and Circuit SDK bunyan logs in logs subfolder.
-```bash
-	tail -f logs/sdk.log | bunyan
-	tail -f logs/app.log | bunyan
-```
-
-
-### Actions on Google - Web Simulator
-
-<img src="images/image.png" width="600px">
 
 
 

@@ -16,7 +16,7 @@ va.init(app);
 process.on('SIGINT', _ => setTimeout(_ => process.exit(), 200));
 
 // Start the server
-let server = app.listen(app.get('port'), _ => {
+const server = app.listen(app.get('port'), _ => {
   console.log(`App listening on port ${server.address().port}.`);
   console.log('Press Ctrl+C to quit.');
 });

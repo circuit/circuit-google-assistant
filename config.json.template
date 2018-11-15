@@ -9,14 +9,5 @@
       "client_secret": "<your client credentials client_secret>",
       "domain": "circuitsandbox.net"
     }
-  },
-  "webhook": {
-    "users": { 
-      "admin": "mysecret"
-    }
-  },
-  "logging": {
-    "nodeapp": "trace",
-    "circuitsdk": "info"
   }
 }

@@ -1,7 +1,6 @@
 'use strict';
 
 const CLIENT_ID = 'd34edad8cda6433bb062f0671f58c232';
-const log = require('./logger').child({module: 'va'});
 const CircuitClient = require('./circuitClient');
 
 
@@ -14,7 +13,7 @@ const sessions = {}; // Active sessions
 
 
 function init(express) {
-  log.info(`Initialize va`);
+  console.log(`Initialize va`);
 
   express.use(app);
 
@@ -249,7 +248,7 @@ function createSession(user) {
       sessions[user.id] = session;
       return session;
     })
-    .catch(err => log.error(`Unable to logon to Circuit`, err));
+    .catch(err => console.error(`Unable to logon to Circuit`, err));
 }
 
 function findWebClient(circuit) {
@@ -270,7 +269,7 @@ function clearSession(sessionId) {
   if (!session) {
     return Promise.resolve();
   }
-  log.info(`Clearing session ${sessionId}`);
+  console.log(`Clearing session ${sessionId}`);
   clearTimeout(session.timer);
   session.timer = null;
   sessions[sessionId] = null;

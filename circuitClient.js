@@ -1,11 +1,6 @@
 'use strict';
 
-const bunyan = require('bunyan');
 const Circuit = require('circuit-sdk');
-const log = require('./logger').child({module: 'circuit'});
-const config = require('./config.json');
-
-let sdkLogLevel = config.logging && config.logging.circuitsdk || 'error';
 
 /**
  * Wrapper class for Circuit.Client
@@ -14,12 +9,6 @@ class CircuitClient {
   constructor (credentials) {
     // Create client instance
     this.client = new Circuit.Client(credentials);
-
-    Circuit.setLogger(bunyan.createLogger({
-        name: 'sdk',
-        stream: process.stdout,
-        level: sdkLogLevel
-    }));
 
     // Add peerUserId attribute for direct conversations
     Circuit.Injectors.conversationInjector = c => {
@@ -139,7 +128,7 @@ class CircuitClient {
    */
   logon (accessToken) {
     return this.client.logon(accessToken ? {accessToken: accessToken} : undefined)
-      .then(user => log.info(`Logged on to Circuit: ${user.displayName}`))
+      .then(user => console.log(`Logged on to Circuit: ${user.displayName}`))
   }
 
   /**
@@ -152,7 +141,7 @@ class CircuitClient {
     const displayName = this.client.loggedOnUser.displayName;
     return this.client.logout()
       .then(_ => {
-        log.info(`Logged out of Circuit: ${displayName}`)
+        console.log(`Logged out of Circuit: ${displayName}`)
       });
   }
 
