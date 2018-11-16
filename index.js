@@ -13,6 +13,16 @@ const app = dialogflow({
   clientId: CLIENT_ID
 });
 
+const expressApp = express();
+expressApp.get('_ah/start', (req, res) => {
+  console.log('handle _ah/start');
+  res.sendStatus(200);
+});
+
+expressApp.use(bodyParser.json(), app);
+expressApp.listen(process.env.PORT || 8080);
+
+
 
 app.intent('Default Welcome Intent', conv => {
   // Create a session for this user at the beginning so user
@@ -289,6 +299,4 @@ function destroy() {;
   sessions = [];
   return Promise.all(promises);
 }
-
-express().use(bodyParser.json(), app).listen(process.env.PORT || 8080);
 
