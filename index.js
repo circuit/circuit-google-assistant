@@ -224,10 +224,10 @@ app.intent('call.user - yes', async conv => {
   const device = await findWebClient(circuit);
   const { email, name } = conv.contexts.input['calluser_data'].parameters;
   try {
-    await circuit.sendClickToCallRequest(email, null, device && device.clientId, false);
+    await circuit.sendClickToCallRequest(email, null, device && device.clientId, true);
     conv.ask(`Ok, calling ${name} on your browser.`);
   } catch (err) {
-    conv.ask(`Looks like you are not logged in to Circuit on your browser. Login and try again.`);
+    conv.ask(`Looks like you are not logged in to Circuit on your browser on the desktop. Login and try again.`);
   }
   conv.contexts.delete('calluser_data');
   conv.close();
