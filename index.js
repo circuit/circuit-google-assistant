@@ -14,7 +14,7 @@ const app = dialogflow({
 });
 
 const expressApp = express();
-expressApp.get('_ah/start', (req, res) => {
+expressApp.get('/_ah/start', (req, res) => {
   console.log('handle _ah/start');
   res.sendStatus(200);
 });

@@ -1,0 +1,6 @@
+runtime: nodejs8
+
+service: circuit-google-assistant
+
+manual_scaling:
+  instances: 1
