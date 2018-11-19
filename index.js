@@ -4,26 +4,35 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const CircuitClient = require('./circuitClient');
 
+// Client ID for IMPLICIT app on Circuit. Same ID needs to be defined
+// in Account Linking of your project at console.actions.google.com
 const CLIENT_ID = 'd34edad8cda6433bb062f0671f58c232';
+
+// Circuit session timeout
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5min session timeout
 
 const sessions = {}; // Active sessions
 
-const app = dialogflow({
-  clientId: CLIENT_ID
-});
+const app = dialogflow({clientId: CLIENT_ID});
 
+// Create express app to for handling the /_ah/start request posted
+// by AppEngine
 const expressApp = express();
 expressApp.get('/_ah/start', (req, res) => {
   console.log('handle _ah/start');
   res.sendStatus(200);
 });
 
+// Add dialogFlow as middleware
 expressApp.use(bodyParser.json(), app);
+
+// Start server
 expressApp.listen(process.env.PORT || 8080);
 
 
-
+/**
+ * Default Welcome Intent
+ */
 app.intent('Default Welcome Intent', conv => {
   // Create a session for this user at the beginning so user
   // is logged on to Circuit by the time needed
@@ -77,6 +86,9 @@ app.intent('send.message', async (conv, {target, message}) => {
   conv.ask(new Suggestions(suggestions));
 });
 
+/**
+ * send.message - collect.target
+ */
 app.intent('send.message - collect.target', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
@@ -99,6 +111,9 @@ app.intent('send.message - collect.target', async conv => {
   });
 });
 
+/**
+ * send.message - yes
+ */
 app.intent('send.message - yes', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
@@ -113,6 +128,9 @@ app.intent('send.message - yes', async conv => {
   conv.contexts.set('anything_else', 2);
 });
 
+/**
+ * send.message - no
+ */
 app.intent('send.message - no', async conv => {
   conv.contexts.delete('sendmessage_data');
   conv.ask('Message not sent. Is there anything else I can do for you?');
@@ -158,6 +176,9 @@ app.intent('call.user', async (conv, {target}) => {
   conv.ask(new Suggestions(suggestions));
 });
 
+/**
+ * call.user - collect target
+ */
 app.intent('call.user - collect target', async (conv, {target}) => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
@@ -192,6 +213,9 @@ app.intent('call.user - collect target', async (conv, {target}) => {
   conv.ask(new Suggestions(suggestions));
 });
 
+/**
+ * call.user - yes
+ */
 app.intent('call.user - yes', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
@@ -200,10 +224,10 @@ app.intent('call.user - yes', async conv => {
   const device = await findWebClient(circuit);
   const { email, name } = conv.contexts.input['calluser_data'].parameters;
   try {
-    await circuit.sendClickToCallRequest(email, null, device && device.clientId, false);
+    await circuit.sendClickToCallRequest(email, null, device && device.clientId, true);
     conv.ask(`Ok, calling ${name} on your browser.`);
   } catch (err) {
-    conv.ask(`Looks like you are not logged in to Circuit on your browser. Login and try again.`);
+    conv.ask(`Looks like you are not logged in to Circuit on your browser on the desktop. Login and try again.`);
   }
   conv.contexts.delete('calluser_data');
   conv.close();
@@ -215,6 +239,7 @@ app.intent('call.user - no', async conv => {
   conv.ask(new Suggestions('No, that\'s all', 'Yes'));
   conv.contexts.set('anything_else', 2);
 });
+
 
 /**
  * Common intents
@@ -229,7 +254,9 @@ app.intent('anything.else - no', async conv => {
   conv.close();
 });
 
-
+/**
+ * Exception handler
+ */
 app.catch((conv, e) => {
   console.error(e);
   conv.close('Oops. Something went wrong.');
@@ -249,8 +276,9 @@ async function getCircuit(conv) {
   }
 }
 
-
-
+/**
+ * Create Circuit session
+ */
 function createSession(user) {
   const circuit = new CircuitClient({client_id: CLIENT_ID});
   return circuit.logon(user.access.token)
@@ -265,6 +293,9 @@ function createSession(user) {
     .catch(err => console.error(`Unable to logon to Circuit`, err));
 }
 
+/**
+ * Find web client of logged on user
+ */
 function findWebClient(circuit) {
   return circuit.getDevices().then(devices => {
       return devices.find(device => {
