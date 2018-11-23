@@ -41,9 +41,9 @@ The node app needs to be publicly accessible for Google Home to call your webhoo
 ```
 
 ### Screenshots
-<kbd><img src="images/linking.png" width="300px"></kbd>
-<kbd><img src="images/sendmessage.png" width="300px"></kbd>
-<kbd><img src="images/calluser.png" width="300px"></kbd>
+<kbd><img src="images/linking.png" width="280px"></kbd>
+<kbd><img src="images/sendmessage.png" width="280px"></kbd>
+<kbd><img src="images/calluser.png" width="280px"></kbd>
 
 
 
