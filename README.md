@@ -5,8 +5,11 @@ Integration between Circuit and Google Home (Google Virtual Assistant). Google C
 You don't need a Google Home. [Google Assistant](https://assistant.google.com/) also works on any Android and even iOS phone, the [web simulator](https://developers.google.com/actions/tools/web-simulator).
 
 ## How it works
-Google Assistant listens for and Invocation Name (e.g. Circuit Communicator) to start the app and listens for commands. Once a match to an intent is found, the intent can either be handled on DialogFlow directly or by this node application via webhooks. The first time you launch the "Circuit Communicator", account linking is done via OAuth.
+Google Assistant listens for and Invocation Name (e.g. Unify Circuit) to start the app and listens for commands. Once a match to an intent is found, the intent can either be handled on DialogFlow directly or by this node application via webhooks. The first time you launch the "Circuit Communicator", account linking is done via OAuth.
 
+## Available in Google Assistant Store
+Current version in store only works with circuitsandbox.net system.
+https://assistant.google.com/services/a/uid/000000b54b860f99?hl=en
 
 ## Resources
  - https://developers.google.com/actions
