@@ -6,7 +6,7 @@ const Circuit = require('circuit-sdk');
  * Wrapper class for Circuit.Client
  */
 class CircuitClient {
-  constructor (credentials) {
+  constructor(credentials) {
     // Create client instance
     this.client = new Circuit.Client(credentials);
 
@@ -18,29 +18,31 @@ class CircuitClient {
         })[0];
       }
       return c;
-    }
+    };
 
     // Function bindings
-    this.sendClickToCallRequest = this.client.sendClickToCallRequest;
-    this.getStartedCalls = this.client.getStartedCalls;
+    this.addParticipant = this.client.addParticipant;
+    this.addTextItem = this.client.addTextItem;
     this.getConversationsByIds = this.client.getConversationsByIds;
     this.getDevices = this.client.getDevices;
-    this.joinConference = this.client.joinConference;
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
-    this.addTextItem = this.client.addTextItem;
+    this.getStartedCalls = this.client.getStartedCalls;
+    this.joinConference = this.client.joinConference;
+    this.sendClickToCallRequest = this.client.sendClickToCallRequest;
 
     // Properties
     Object.defineProperty(this, 'user', {
-      get: _ => { return this.client.loggedOnUser; }
+      get: _ => {
+        return this.client.loggedOnUser;
+      }
     });
   }
-
 
   /////////////////////////////////////
   /// Public functions
   /////////////////////////////////////
 
-  async searchUsers (query) {
+  async searchUsers(query) {
     const self = this;
     return new Promise(async resolve => {
       let searchId;
@@ -98,7 +100,7 @@ class CircuitClient {
 
       async function searchStatusHandler(evt) {
         // Indicates is search is finished
-        console.log('searchStatus', evt)
+        console.log('searchStatus', evt);
         if (evt.data.searchId !== searchId) {
           return;
         }
@@ -116,19 +118,20 @@ class CircuitClient {
       self.client.addEventListener('basicSearchResults', searchResultHandler);
       self.client.addEventListener('searchStatus', searchStatusHandler);
 
-      searchId = await self.client.startBasicSearch([{
-        scope: Circuit.Enums.SearchScope.CONVERSATIONS,
-        searchTerm: query
-      }]);
+      searchId = await self.client.startBasicSearch([
+        {
+          scope: Circuit.Enums.SearchScope.CONVERSATIONS,
+          searchTerm: query
+        }
+      ]);
     });
   }
 
   /**
    * logon
    */
-  logon (accessToken) {
-    return this.client.logon(accessToken ? {accessToken: accessToken} : undefined)
-      .then(user => console.log(`Logged on to Circuit: ${user.displayName}`))
+  logon(accessToken) {
+    return this.client.logon(accessToken ? { accessToken: accessToken } : undefined).then(user => console.log(`Logged on to Circuit: ${user.displayName}`));
   }
 
   /**
@@ -139,16 +142,14 @@ class CircuitClient {
       return Promise.resolve();
     }
     const displayName = this.client.loggedOnUser.displayName;
-    return this.client.logout()
-      .then(_ => {
-        console.log(`Logged out of Circuit: ${displayName}`)
-      });
+    return this.client.logout().then(_ => {
+      console.log(`Logged out of Circuit: ${displayName}`);
+    });
   }
 
   /////////////////////////////////////
   /// Private functions
   /////////////////////////////////////
-
 }
 
 module.exports = CircuitClient;
