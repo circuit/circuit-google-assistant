@@ -113,12 +113,17 @@ app.intent('add.Participant - collect.conv', async conv => {
     conv.ask(`I cannot find any conversation called ${convName}. What's the name?`);
     return;
   } else if (convs.length > 1) {
-    // Multiple conversations found.
-    convs = convs.slice(0, Math.min(7, convs.length));
-    const suggestions = convs.map(c => c.topic);
+    //Multiple conversations found
+    let shortestConvName = [convs[0]];
 
-    conv.ask(`More than one conversation was found with the name ${convName}. What's the full name?`, new Suggestions(suggestions));
-    return;
+    //Loop through convs to find shortest conv name
+    convs.forEach(function(conv, i) {
+      if (conv.topic < shortestConvName[0].topic) {
+        shortestConvName[0] = conv;
+      }
+    });
+
+    convs = shortestConvName;
   }
 
   //Save conversation to context because only one found
@@ -203,6 +208,24 @@ app.intent('add.Participant - yes', async conv => {
   }
 
   const { users, convs } = conv.contexts.input['addparticipant_data'].parameters;
+  const thisUser = circuit.user;
+
+  if (convs[0].participants.indexOf(users[0].userId) !== -1) {
+    //User is already in the conversation
+    conv.ask(`${users[0].displayName} is already a participant in ${convs[0].topic}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
+    conv.contexts.delete('addparticipant_data');
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
+
+  if (convs[0].isModerated && convs[0].moderators.indexOf(thisUser.userId) === -1) {
+    //Conversation is moderated and thisUser is not a moderator
+    conv.ask(`Sorry, but you are not a moderator in ${convs[0].topic} so ${users[0].displayName} cannot be added. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
+    conv.contexts.delete('addparticipant_data');
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
+
   await circuit.addParticipant(convs[0].convId, users[0].userId, true);
   conv.ask(`${users[0].displayName} was added to ${convs[0].topic}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
   conv.contexts.delete('addparticipant_data');
@@ -448,9 +471,9 @@ function createSession(user) {
     .then(() => {
       const session = {
         circuit: circuit,
-        timer: setTimeout(clearSession.bind(null, user.id), SESSION_TIMEOUT)
+        timer: setTimeout(clearSession.bind(null, user.storage), SESSION_TIMEOUT)
       };
-      sessions[user.id] = session;
+      sessions[user.storage] = session;
       return session;
     })
     .catch(err => console.error(`Unable to logon to Circuit`, err));
