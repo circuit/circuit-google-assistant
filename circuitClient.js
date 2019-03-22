@@ -28,6 +28,7 @@ class CircuitClient {
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
     this.getStartedCalls = this.client.getStartedCalls;
     this.joinConference = this.client.joinConference;
+    this.removeParticipant = this.client.removeParticipant;
     this.sendClickToCallRequest = this.client.sendClickToCallRequest;
 
     // Properties
