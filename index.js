@@ -233,6 +233,172 @@ app.intent('add.participant.to.group - yes', async conv => {
 });
 
 /**
+ * add.participant.to.one
+ */
+app.intent('add.participant.to.one', async (conv, { thirdUser, target }) => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  let thirdUsers = await circuit.searchUsers(thirdUser);
+  let targetUsers = await circuit.searchUsers(target);
+
+  //Save results to context
+  conv.contexts.set('addparticipantone_data', 5, {
+    thirdUsers: thirdUsers,
+    targetUsers: targetUsers
+  });
+
+  if (!thirdUsers.length) {
+    //No user found
+    conv.ask(`I cannot find any user called ${thirdUser}. What's the name?`);
+    conv.contexts.set('addparticipantone_getuser', 5);
+    return;
+  } else if (thirdUsers.length > 1) {
+    // Multiple users found
+    thirdUsers = thirdUsers.slice(0, Math.min(7, thirdUsers.length));
+    const suggestions = thirdUsers.map(u => u.displayName);
+
+    conv.ask(`More than one user was found with the name ${thirdUser}. What's the full name?`, new Suggestions(suggestions));
+    conv.contexts.set('addparticipantone_getuser', 5);
+    return;
+  }
+
+  if (!targetUsers.length) {
+    //No user found
+    conv.ask(`I cannot find any user called ${thirdUser}. What's the name?`);
+    conv.contexts.set('addparticipantone_getuser', 5);
+    return;
+  } else if (targetUsers.length > 1) {
+    // Multiple users found
+    targetUsers = targetUsers.slice(0, Math.min(7, targetUsers.length));
+    const suggestions = targetUsers.map(u => u.displayName);
+
+    conv.ask(`More than one user was found with the name ${target}. What's the full name?`, new Suggestions(suggestions));
+    conv.contexts.set('addparticipantone_getuser', 5);
+    return;
+  }
+
+  //One result found for thirdUser and target
+  conv.ask(`Ready to add ${thirdUsers[0].displayName} to your conversation with ${targetUsers[0].displayName}?`, new Suggestions('Yes', 'No'));
+});
+
+/**
+ * add.participant.to.one - collect.user
+ */
+app.intent('add.participant.to.one - collect.user', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  let { thirdUsers, targetUsers } = conv.contexts.input['addparticipantone_data'].parameters;
+  let user = conv.parameters.user;
+  let users = await circuit.searchUsers(user);
+
+  if (!users.length) {
+    //No user found
+    conv.ask(`I cannot find any user called ${user}. What's the name?`);
+    return;
+  } else if (users.length > 1) {
+    // Multiple users found
+    users = users.slice(0, Math.min(7, users.length));
+    const suggestions = users.map(u => u.displayName);
+
+    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
+    return;
+  }
+
+  //One user found beyond this point
+  let params = conv.contexts.output['addparticipantone_data'].parameters;
+
+  if (thirdUsers.length !== 1 && !targetUsers.length) {
+    params = conv.contexts.output['addparticipantone_data'].parameters;
+
+    //Add thirdUser to context
+    params.thirdUsers = [users[0]];
+    conv.contexts.set('addparticipantone_data', 5, params);
+
+    conv.ask(`Thank you. I couldn't find the user whose conversation you wanted me to add ${users[0].displayName} to. What's the name again?`);
+    return;
+  }
+
+  if (thirdUsers.length !== 1 && targetUsers.length > 1) {
+    params = conv.contexts.input['addparticipantone_data'].parameters;
+
+    //Add thirdUser to context
+    params.thirdUsers = [users[0]];
+    conv.contexts.set('addparticipantone_data', 5, params);
+
+    let tempUsers = targetUsers.slice(0, Math.min(7, targetUsers.length));
+    const suggestions = tempUsers.map(u => u.displayName);
+
+    conv.ask(`Thank you. I found more than one user whose conversation you wanted me to add ${users[0].displayName} to. What's the full name?`, new Suggestions(suggestions));
+    return;
+  }
+
+  if (targetUsers.length !== 1) {
+    params = conv.contexts.input['addparticipantone_data'].parameters;
+
+    //Add targetUser to context
+    params.targetUsers = [users[0]];
+    conv.contexts.set('addparticipantone_data', 5, params);
+  }
+
+  conv.ask(`Ready to add ${thirdUsers[0].displayName} to your conversation with ${users[0].displayName}?`, new Suggestions('Yes', 'No'));
+});
+
+/**
+ * add.participant.to.one - no
+ */
+app.intent('add.participant.to.one - no', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  conv.ask('Is there anything else I can do for you?', new Suggestions('Yes', 'No'));
+  conv.contexts.delete('addparticipantone_data');
+  conv.contexts.set('anything_else', 2);
+});
+
+/**
+ * add.participant.to.one - yes
+ */
+app.intent('add.participant.to.one - yes', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const { thirdUsers, targetUsers } = conv.contexts.input['addparticipantone_data'].parameters;
+  const conversation = await circuit.getDirectConversationWithUser(targetUsers[0].userId);
+
+  if (!conversation) {
+    //No direct conversation found
+    conv.ask(`You are not in a direct conversation with ${targetUsers[0].displayName}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
+    conv.contexts.delete('addparticipantone_data');
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
+
+  if (thirdUsers[0].userId === targetUsers[0].userId) {
+    //thirdUser and targetUser is the same user
+    conv.ask(`I cannot add ${thirdUsers[0].displayName} to his own conversation. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
+    conv.contexts.delete('addparticipantone_data');
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
+
+  await circuit.addParticipant(conversation.convId, thirdUsers[0].userId);
+
+  conv.ask(`${thirdUsers[0].displayName} has been added to your conversation with ${targetUsers[0].displayName}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
+  conv.contexts.delete('addparticipantone_data');
+  conv.contexts.set('anything_else', 2);
+});
+
+/**
  * remove.participant
  */
 app.intent('remove.participant', async (conv, { user, convName }) => {
