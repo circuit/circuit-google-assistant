@@ -52,7 +52,7 @@ app.intent('add.participant.to.group', async (conv, { convName, user }) => {
     return;
   }
 
-  let users = await circuit.searchUsers(user);
+  let users = await getUsers(circuit, conv, user);
   let convs = await circuit.searchConversationsByName(convName);
 
   //Save results to context
@@ -61,17 +61,7 @@ app.intent('add.participant.to.group', async (conv, { convName, user }) => {
     convs: convs
   });
 
-  if (!users.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${user}. What's the name?`);
-    conv.contexts.set('addparticipantgroup_getuser', 5);
-    return;
-  } else if (users.length > 1) {
-    // Multiple users found
-    users = users.slice(0, Math.min(7, users.length));
-    const suggestions = users.map(u => u.displayName);
-
-    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
+  if (users.length !== 1) {
     conv.contexts.set('addparticipantgroup_getuser', 5);
     return;
   }
@@ -145,19 +135,10 @@ app.intent('add.participant.to.group - collect.user', async conv => {
 
   let { convs } = conv.contexts.input['addparticipantgroup_data'].parameters;
   let user = conv.parameters.user;
-  let users = await circuit.searchUsers(user);
+  let users = await getUsers(circuit, conv, user);
 
-  if (!users.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${user}. What's the name?`);
-    return;
-  } else if (users.length > 1) {
-    // Multiple users found
-    users = users.slice(0, Math.min(7, users.length));
-    const suggestions = users.map(u => u.displayName);
-
-    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
-    conv.contexts.set('addparticipantgroup_getuser', 5);
+  if (users.length !== 1) {
+    //Stays in this intent and gets input from user again
     return;
   }
 
@@ -241,41 +222,22 @@ app.intent('add.participant.to.one', async (conv, { thirdUser, target }) => {
     return;
   }
 
-  let thirdUsers = await circuit.searchUsers(thirdUser);
-  let targetUsers = await circuit.searchUsers(target);
-
   //Save results to context
   conv.contexts.set('addparticipantone_data', 5, {
     thirdUsers: thirdUsers,
     targetUsers: targetUsers
   });
 
-  if (!thirdUsers.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${thirdUser}. What's the name?`);
-    conv.contexts.set('addparticipantone_getuser', 5);
-    return;
-  } else if (thirdUsers.length > 1) {
-    // Multiple users found
-    thirdUsers = thirdUsers.slice(0, Math.min(7, thirdUsers.length));
-    const suggestions = thirdUsers.map(u => u.displayName);
+  let thirdUsers = await getUsers(circuit, conv, thirdUser);
 
-    conv.ask(`More than one user was found with the name ${thirdUser}. What's the full name?`, new Suggestions(suggestions));
+  if (thirdUsers.length !== 1) {
     conv.contexts.set('addparticipantone_getuser', 5);
     return;
   }
 
-  if (!targetUsers.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${thirdUser}. What's the name?`);
-    conv.contexts.set('addparticipantone_getuser', 5);
-    return;
-  } else if (targetUsers.length > 1) {
-    // Multiple users found
-    targetUsers = targetUsers.slice(0, Math.min(7, targetUsers.length));
-    const suggestions = targetUsers.map(u => u.displayName);
+  let targetUsers = await getUsers(circuit, conv, target);
 
-    conv.ask(`More than one user was found with the name ${target}. What's the full name?`, new Suggestions(suggestions));
+  if (targetUsers.length !== 1) {
     conv.contexts.set('addparticipantone_getuser', 5);
     return;
   }
@@ -295,26 +257,18 @@ app.intent('add.participant.to.one - collect.user', async conv => {
 
   let { thirdUsers, targetUsers } = conv.contexts.input['addparticipantone_data'].parameters;
   let user = conv.parameters.user;
-  let users = await circuit.searchUsers(user);
+  let users = await getUsers(circuit, conv, user);
 
-  if (!users.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${user}. What's the name?`);
-    return;
-  } else if (users.length > 1) {
-    // Multiple users found
-    users = users.slice(0, Math.min(7, users.length));
-    const suggestions = users.map(u => u.displayName);
-
-    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
+  if (users.length !== 1) {
+    //Stays in this intent and gets input from user again
     return;
   }
 
   //One user found beyond this point
-  let params = conv.contexts.output['addparticipantone_data'].parameters;
+  let params = conv.contexts.input['addparticipantone_data'].parameters;
 
   if (thirdUsers.length !== 1 && !targetUsers.length) {
-    params = conv.contexts.output['addparticipantone_data'].parameters;
+    params = conv.contexts.input['addparticipantone_data'].parameters;
 
     //Add thirdUser to context
     params.thirdUsers = [users[0]];
@@ -407,7 +361,7 @@ app.intent('remove.participant', async (conv, { user, convName }) => {
     return;
   }
 
-  let users = await circuit.searchUsers(user);
+  let users = await getUsers(circuit, conv, user);
   let convs = await circuit.searchConversationsByName(convName);
 
   //Save results to context
@@ -416,17 +370,7 @@ app.intent('remove.participant', async (conv, { user, convName }) => {
     convs: convs
   });
 
-  if (!users.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${user}. What's the name?`);
-    conv.contexts.set('removeparticipant_getuser', 5);
-    return;
-  } else if (users.length > 1) {
-    // Multiple users found
-    users = users.slice(0, Math.min(7, users.length));
-    const suggestions = users.map(u => u.displayName);
-
-    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
+  if (users.length !== 1) {
     conv.contexts.set('removeparticipant_getuser', 5);
     return;
   }
@@ -500,19 +444,10 @@ app.intent('remove.participant - collect.user', async conv => {
 
   let { convs } = conv.contexts.input['removeparticipant_data'].parameters;
   let user = conv.parameters.user;
-  let users = await circuit.searchUsers(user);
+  let users = await getUsers(circuit, conv, user);
 
-  if (!users.length) {
-    //No user found
-    conv.ask(`I cannot find any user called ${user}. What's the name?`);
-    return;
-  } else if (users.length > 1) {
-    // Multiple users found
-    users = users.slice(0, Math.min(7, users.length));
-    const suggestions = users.map(u => u.displayName);
-
-    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
-    conv.contexts.set('removeparticipant_getuser', 5);
+  if (users.length !== 1) {
+    //Stays in this intent and gets input from user again
     return;
   }
 
@@ -690,33 +625,20 @@ app.intent('call.user', async (conv, { target }) => {
     return;
   }
 
-  let users = await circuit.searchUsers(target);
+  let users = await getUsers(circuit, conv, target);
 
-  if (!users.length) {
+  if (users.length !== 1) {
     conv.contexts.set('calluser_getuser', 5);
-    conv.ask(`I cannot find any user called ${target}. What's the name?`);
     return;
   }
 
-  if (users.length === 1) {
-    // One result found. Ask user for confirmation.
-    const name = users.length && users[0].displayName;
-    conv.ask(`<speak>Ready to call ${name}?</speak>`, new Suggestions('Yes', `No`));
-    conv.contexts.set('calluser_data', 5, {
-      email: users[0].emailAddress,
-      name: name
-    });
-    return;
-  }
-
-  // Multiple matches. Show suggestions of the first few matches.
-  users = users.slice(0, Math.min(7, users.length));
-
-  const suggestions = users.map(u => u.displayName);
-  conv.contexts.set('calluser_getuser', 5);
-
-  conv.ask(`More than one user found with name ${target}. What's the full name?`, new Suggestions(suggestions));
-  conv.ask(new Suggestions(suggestions));
+  // One result found. Ask user for confirmation.
+  const name = users.length && users[0].displayName;
+  conv.ask(`<speak>Ready to call ${name}?</speak>`, new Suggestions('Yes', `No`));
+  conv.contexts.set('calluser_data', 5, {
+    email: users[0].emailAddress,
+    name: name
+  });
 });
 
 /**
@@ -728,32 +650,20 @@ app.intent('call.user - collect target', async (conv, { target }) => {
     return;
   }
 
-  let users = await circuit.searchUsers(target);
+  let users = await getUsers(circuit, conv, target);
 
-  if (!users.length) {
-    conv.ask(`I cannot find any user called ${target}.`);
+  if (users.length !== 1) {
+    //Stays in this intent and gets input from user again
     return;
   }
 
-  if (users.length === 1) {
-    // One result found. Ask user for confirmation.
-    const name = users.length && users[0].displayName;
-    conv.ask(`<speak>Ready to call ${name}?</speak>`, new Suggestions('Yes', `No`));
-    conv.contexts.set('calluser_data', 5, {
-      email: users[0].emailAddress,
-      name: name
-    });
-    return;
-  }
-
-  // Multiple matches. Show suggestions of the first few matches.
-  users = users.slice(0, Math.min(7, users.length));
-
-  const suggestions = users.map(u => u.displayName);
-  conv.contexts.set('calluser_getuser', 5);
-
-  conv.ask(`More than one user or conversation found with name ${target}. What's the full name?`, new Suggestions(suggestions));
-  conv.ask(new Suggestions(suggestions));
+  // One result found. Ask user for confirmation.
+  const name = users.length && users[0].displayName;
+  conv.ask(`<speak>Ready to call ${name}?</speak>`, new Suggestions('Yes', `No`));
+  conv.contexts.set('calluser_data', 5, {
+    email: users[0].emailAddress,
+    name: name
+  });
 });
 
 /**
@@ -844,6 +754,26 @@ function findWebClient(circuit) {
       return device.clientId !== circuit.user.clientId && (device.clientInfo.deviceType === 'WEB' || (device.clientInfo.deviceType === 'APPLICATION' && device.clientInfo.deviceSubtype === 'DESKTOP_APP'));
     });
   });
+}
+
+/**
+ * Search for a user
+ */
+async function getUsers(circuit, conv, user) {
+  let users = await circuit.searchUsers(user);
+
+  if (!users.length) {
+    //No user found
+    conv.ask(`I cannot find any user called ${user}. What's the name?`);
+  } else if (users.length > 1) {
+    // Multiple users found
+    users = users.slice(0, Math.min(7, users.length));
+    const suggestions = users.map(u => u.displayName);
+
+    conv.ask(`More than one user was found with the name ${user}. What's the full name?`, new Suggestions(suggestions));
+  }
+
+  return users;
 }
 
 /**
