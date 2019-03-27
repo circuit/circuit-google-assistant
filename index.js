@@ -33,15 +33,25 @@ expressApp.listen(process.env.PORT || 8080);
 /**
  * Default Welcome Intent
  */
-app.intent('Default Welcome Intent', conv => {
+app.intent('Default Welcome Intent', async conv => {
   // Create a session for this user at the beginning so user
   // is logged on to Circuit by the time needed
   if (!sessions[conv.user.id]) {
     createSession(conv.user);
   }
 
+  let { inConferenceCall, conferenceAvailable } = await getConferenceInfo(conv);
   conv.ask(`What can I do for you?`);
-  conv.ask(new Suggestions('Send a message', 'Make a call', 'Join a conference', 'Leave a conference'));
+ 
+  if(inConferenceCall && conferenceAvailable){
+    conv.ask(new Suggestions('Send a message', 'Make a call', 'Leave a conference', 'Join a conference'));
+  } else if (conferenceAvailable){
+    conv.ask(new Suggestions('Send a message', 'Make a call', 'Join a conference'));
+  } else if (inConferenceCall) {
+    conv.ask(new Suggestions('Send a message', 'Make a call', 'Leave a conference'));
+  } else {
+    conv.ask(new Suggestions('Send a message', 'Make a call'));
+  }
 });
 
 /**
@@ -147,19 +157,17 @@ app.intent('join.conference', async (conv, {target}) => {
     return;
   }
 
-  let matches = [],
-  startedCalls = await circuit.getStartedCalls(),
-  calls = await lookupConversations(circuit, startedCalls);
-  
-  let remCalls = await circuit.getActiveRemoteCalls();
-  if (remCalls.length >= 1){
+  let matches = [];
+  let { inConferenceCall, conferenceAvailable, calls } = await getConferenceInfo(conv);
+
+  if (inConferenceCall) {
     conv.ask("<speak>You're already in a conference call. Can I do anything else for you?</speak>");
     conv.ask(new Suggestions('No, that\'s all', 'Yes'));
     conv.contexts.set('anything_else', 2); 
     return;
   } 
 
-  if(startedCalls.length === 0){
+  if(!conferenceAvailable){
     conv.ask(`<speak>No conferences available to join. Can I do something else for you?</speak>`);
     conv.ask(new Suggestions('No, that\'s all', 'Yes'));
     conv.contexts.set('anything_else', 2);
@@ -291,8 +299,9 @@ app.intent('leave.conference', async (conv, {target}) => {
     return;
   }
 
-  let remCalls = await circuit.getActiveRemoteCalls();
-  if (remCalls.length === 0){
+  let { inConferenceCall, calls } = await getConferenceInfo(conv);
+ 
+  if (!inConferenceCall){
     conv.contexts.delete('joinconference_data');
     conv.ask("<speak>You aren't in any conference calls. Is there anything else I can do for you?</speak>");
     conv.ask(new Suggestions('No, that\'s all', 'Yes'));
@@ -300,9 +309,7 @@ app.intent('leave.conference', async (conv, {target}) => {
     return;
   }
 
-  let titles = [],
-  calls = await lookupConversations(circuit, remCalls);
-
+  let titles = [];
   calls.forEach((call) => {
     if(call.title === ""){
       let placeholder = truncate(call.topicPlaceholder);
@@ -374,7 +381,7 @@ app.intent('leave.conference - yes', async conv => {
   }
 
   const { confId } = conv.contexts.input['leaveconference_send'].parameters;
-  try{
+  try {
     await circuit.leaveConference(confId);
   } catch(e) {
     let prompt = 'There was an error trying to leave the conference. You might not be in the conference anymore. Is there anything else I can do for you?'
@@ -394,10 +401,6 @@ app.intent('leave.conference - yes', async conv => {
  * leave.conference - no
  */
 app.intent('leave.conference - no', async conv => {
-  // This seems to not work and I have absolutely no idea why, flowchart is the same 
-  // for all of the anything_else context sets. Seems to be something with leave conference
-  // method as it throws an error but it only throws the error AFTER the user selects one of the 
-  // suggestions NOT after the promise is resolved which is the strange part. 
   conv.contexts.delete('leaveconference_data');
   conv.ask('Conference not joined. Is there anything else I can do for you?');
   conv.ask(new Suggestions('No, that\'s all', 'Yes'));
@@ -617,6 +620,39 @@ async function lookupConversations(client, calls) {
   });
 }
 
+/**
+ * Returns all necessary conference info needed for joining and leaving a conference.
+ */
+async function getConferenceInfo(conv){
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  let startedCalls = await circuit.getStartedCalls(),
+  calls = await lookupConversations(circuit, startedCalls),
+  remCalls = await circuit.getActiveRemoteCalls(),
+  conferenceAvailable = true,
+  inConferenceCall = false;
+
+  if (remCalls.length >= 1) {
+    inConferenceCall = true;
+  } 
+
+  if(startedCalls.length === 0){
+    conferenceAvailable = false;
+  }
+
+  return {
+    inConferenceCall,
+    conferenceAvailable,
+    calls
+  }
+}
+
+/**
+ * Simple truncate function as suggestions in dialogflow can't be more than 25 characters
+ */
 function truncate(str){
   if(str.length > 25) {
     return str.substring(0,25);
