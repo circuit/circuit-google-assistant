@@ -25,6 +25,7 @@ class CircuitClient {
     this.leaveConference = this.client.leaveConference;
     this.getLoggedOnUser = this.client.getLoggedOnUser;
     this.getStartedCalls = this.client.getStartedCalls;
+    this.findCall = this.client.findCall;
     this.getActiveRemoteCalls = this.client.getActiveRemoteCalls;
     this.getConversationById = this.client.getConversationById;
     this.getDevices = this.client.getDevices;
@@ -77,7 +78,6 @@ class CircuitClient {
 
       self.client.addEventListener('basicSearchResults', searchResultHandler);
       self.client.addEventListener('searchStatus', searchStatusHandler);
-
       searchId = await self.client.startUserSearch(query);
     });
   }

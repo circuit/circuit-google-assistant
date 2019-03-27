@@ -374,7 +374,16 @@ app.intent('leave.conference - yes', async conv => {
   }
 
   const { confId } = conv.contexts.input['leaveconference_send'].parameters;
-  await circuit.leaveConference(confId);
+  try{
+    await circuit.leaveConference(confId);
+  } catch(e) {
+    let prompt = 'There was an error trying to leave the conference. You might not be in the conference anymore. Is there anything else I can do for you?'
+    conv.contexts.delete('leaveconference_data');
+    conv.ask(prompt);
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
   conv.contexts.delete('leaveconference_data');
   conv.ask('Conference left. Is there anything else I can do for you?');
   conv.ask(new Suggestions('No, that\'s all', 'Yes'));
@@ -609,9 +618,8 @@ async function lookupConversations(client, calls) {
 }
 
 function truncate(str){
-  if(str.length > 25){
+  if(str.length > 25) {
     return str.substring(0,25);
-  } else {
-    return str;
-  }
+  } 
+  return str;
 }
