@@ -28,6 +28,8 @@ class CircuitClient {
     this.joinConference = this.client.joinConference;
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
     this.addTextItem = this.client.addTextItem;
+    this.getPresence = this.client.getPresence;
+    this.setPresence = this.client.setPresence;
 
     // Properties
     Object.defineProperty(this, 'user', {
@@ -121,6 +123,68 @@ class CircuitClient {
         searchTerm: query
       }]);
     });
+  }
+  
+  async setMyStatusMessage(statusMessage){
+    return this.client.setStatusMessage(statusMessage);
+  }
+
+  getMyStatusMessage(){
+    return this.client.getStatusMessage();
+  }
+
+  async setPresenceAvailable(){
+    const statusMsg = await this.client.getStatusMessage();
+
+    return this.client.setPresence({
+      state: Circuit.Enums.PresenceState.AVAILABLE,
+      statusMessage: statusMsg
+    });
+  }
+  
+  async setPresenceDnd(untilTime, duration){
+
+    const statusMsg = await this.client.getStatusMessage();
+
+    if(untilTime !== ""){
+      untilTime = new Date(untilTime).getTime();
+      
+      return this.client.setPresence({
+      state: Circuit.Enums.PresenceState.DND,
+      dndUntil: untilTime,
+      statusMessage: statusMsg
+      });
+    }
+    else if(duration != ""){
+      
+      if(duration.unit == 'min'){
+        return this.client.setPresence({
+            state: Circuit.Enums.PresenceState.DND,
+            dndUntil: Date.now() + (60000 * duration.amount), //sets to 1 minute in ms * amount of minutes
+            statusMessage: statusMsg
+          });
+      }
+      else if(duration.unit == 'h'){
+        return this.client.setPresence({
+            state: Circuit.Enums.PresenceState.DND,
+            dndUntil: Date.now() + (3600000 * duration.amount), //sets to 1 hour in ms * amount of hours
+            statusMessage: statusMsg
+          });
+      }
+
+    }     
+  }
+
+  getDndTime(){
+    return this.client.getPresence(this.user.userId)
+      .then(res => res[0].dndUntil)
+      .catch(console.error);
+  }
+
+  getUserPresence(){
+    return this.client.getPresence(this.user.userId)
+      .then(res => res[0].state)
+      .catch(console.error);
   }
 
   /**
