@@ -309,39 +309,6 @@ app.intent('set.presence', async conv => {
   }
   return;
 });
-       
-/**
- * Set a logged on user to a presence
- */
-app.intent('set.presence - collect presenceType', async conv => {
-  const circuit = await getCircuit(conv);
-  if (!circuit) {
-    return;
-  }
-  const { presenceType } = conv.contexts.input['setpresence_data'].parameters;
-  const presence = presenceType.toLowerCase();
-  
-  const { untilTime } = conv.contexts.input['setpresence_data'].parameters;
-  const { duration } = conv.contexts.input['setpresence_data'].parameters;
-  
-  if (presence == 'available') {
-    await circuit.setPresenceAvailable()
-    conv.ask(`Your online presence is set to Available. Anything Else?`);
-    conv.contexts.set('anything_else', 5);
-  } else if ((presence == 'dnd' || presence == 'do not disturb')&& (untilTime != '' || duration != '')) {
-      await circuit.setPresenceDnd(untilTime, duration)
-      conv.ask(`Your online presence is set to Do Not Disturb. Anything Else?`);
-      conv.contexts.set('anything_else', 5);
-  }else if ((presence == 'dnd' || presence == 'do not disturb')&& (!untilTime && !duration)) {
-      conv.ask(`How long would you like to be set to Do Not Disturb?`);
-      conv.contexts.set('setdnd_time', 5);
-  }else  {
-    conv.ask(`I didn't catch the presence. What would you like to be set to?`);
-    conv.contexts.set('setpresence_data', 5, { 
-    });
-  }
-
-});
 
 /**
  * Set a logged on user to dnd
