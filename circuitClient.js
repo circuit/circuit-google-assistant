@@ -132,7 +132,8 @@ class CircuitClient {
    * logon
    */
   logon(accessToken) {
-    return this.client.logon(accessToken ? { accessToken: accessToken } : undefined).then(user => console.log(`Logged on to Circuit: ${user.displayName}`));
+    return this.client.logon(accessToken ? { accessToken: accessToken } : undefined)
+      .then(user => console.log(`Logged on to Circuit: ${user.displayName}`));
   }
 
   /**
@@ -143,9 +144,10 @@ class CircuitClient {
       return Promise.resolve();
     }
     const displayName = this.client.loggedOnUser.displayName;
-    return this.client.logout().then(_ => {
-      console.log(`Logged out of Circuit: ${displayName}`);
-    });
+    return this.client.logout()
+      .then(_ => {
+        console.log(`Logged out of Circuit: ${displayName}`);
+      });
   }
 
   /////////////////////////////////////
