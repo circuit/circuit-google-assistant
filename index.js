@@ -230,7 +230,7 @@ app.intent('join.conference', async (conv, { target }) => {
     titles: titles
   });
   return;
-}) 
+}); 
 
 
 /**
@@ -397,7 +397,7 @@ app.intent('leave.conference - yes', async conv => {
   conv.ask('Conference left. Is there anything else I can do for you?');
   conv.ask(new Suggestions('No, that\'s all', 'Yes'));
   conv.contexts.set('anything_else', 2);
-}) 
+});
 
 /**
  * leave.conference - no
