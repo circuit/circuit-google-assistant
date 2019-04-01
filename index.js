@@ -313,7 +313,7 @@ app.intent('leave.conference', async (conv, {target}) => {
   }
 
   const titles = [];
-  calls.forEach((call) => {
+  calls.forEach(call => {
     if (!call.title.length) {
       const placeholder = truncate(call.topicPlaceholder);
       titles.push(placeholder.toLowerCase());
