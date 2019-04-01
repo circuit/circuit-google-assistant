@@ -23,11 +23,11 @@ class CircuitClient {
     // Function bindings
     this.sendClickToCallRequest = this.client.sendClickToCallRequest;
     this.leaveConference = this.client.leaveConference;
+    this.getConversationsByIds = this.client.getConversationsByIds;
     this.getLoggedOnUser = this.client.getLoggedOnUser;
     this.getStartedCalls = this.client.getStartedCalls;
     this.findCall = this.client.findCall;
     this.getActiveRemoteCalls = this.client.getActiveRemoteCalls;
-    this.getConversationById = this.client.getConversationById;
     this.getDevices = this.client.getDevices;
     this.joinConference = this.client.joinConference;
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;

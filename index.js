@@ -40,7 +40,7 @@ app.intent('Default Welcome Intent', async conv => {
     createSession(conv.user);
   }
 
-  let { inConferenceCall, conferenceAvailable } = await getConferenceInfo(conv),
+  const { inConferenceCall, conferenceAvailable } = await getConferenceInfo(conv),
   suggestions = ["Send a message", "Make a call"];
   conv.ask(`What can I do for you?`);
  
@@ -152,14 +152,14 @@ app.intent('send.message - no', async conv => {
 /**
  * join.conference
  */
-app.intent('join.conference', async (conv, {target}) => {
+app.intent('join.conference', async (conv, { target }) => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
     return;
   }
 
-  let matches = [];
-  let { inConferenceCall, conferenceAvailable, calls } = await getConferenceInfo(conv);
+  const matches = [];
+  const { inConferenceCall, conferenceAvailable, calls } = await getConferenceInfo(conv);
 
   if (inConferenceCall) {
     conv.ask('<speak>You\'re already in a conference call. Can I do anything else for you?</speak>');
@@ -184,9 +184,9 @@ app.intent('join.conference', async (conv, {target}) => {
     });
 
     if (!matches.length) {
-      let prompt = `<speak>I cannot find any conference call with name ${target}. Here are the names of your current ongoing conferences. 
+      const prompt = `<speak>I cannot find any conference call with name ${target}. Here are the names of your current ongoing conferences. 
       Which would you like to join?</speak>`;
-      let titles = calls.map((call) => call.title.toLowerCase());
+      const titles = calls.map(call => call.title.toLowerCase());
       conv.ask(prompt, new Suggestions(titles));
       conv.contexts.set('joinconference_gettarget', 5, {
         calls: calls
@@ -214,18 +214,17 @@ app.intent('join.conference', async (conv, {target}) => {
     return;
   }
 
-  let titles = [];
+  const titles = [];
   calls.forEach(call => {
     if (!call.title) {
-      let placeholder = truncate(call.topicPlaceholder);
+      const placeholder = truncate(call.topicPlaceholder);
       titles.push(placeholder);
     } else {
       titles.push(call.title);
     }
   });
 
-  let prompt = '<speak>Which conference would you like to join? Here are your ongoing conferences.</speak>';
-  conv.ask(prompt, new Suggestions(titles));
+  conv.ask('<speak>Which conference would you like to join? Here are your ongoing conferences.</speak>', new Suggestions(titles));
   conv.contexts.set('joinconference_gettarget', 5, {
     calls: calls, 
     titles: titles
@@ -243,30 +242,29 @@ app.intent('join.conference - collect.target', async conv => {
     return;
   }
 
+  let callId;
   const { calls, titles } = conv.contexts.input['joinconference_gettarget'].parameters;
   const { target } = conv.parameters;
-  let callId = null;
 
   // Lowercase titles so if the name of the conference is Test and they type in test
   // it will still be found. That is the reason for the lowercasing the target and titles.
   const lcTitles = titles.map(title => title.toLowerCase());
   const index = lcTitles.indexOf(target);
 
-  if (index !== -1) {
+  if (index > -1) {
     callId = calls[index].callId;
   } else {
-    for (let call of calls) {
-      if (call.title.toLowerCase() === target.toLowerCase())  {
+    calls.forEach(call => {
+      if (call.title.toLowerCase() === target.toLowerCase()) {
         callId = call.callId;
       } 
-    }
-  }
-
+    })
+  }  
   conv.ask(`<speak>Ready to join the <break time="0.5s"/>${target}<break time="0.5s"/> conference call?</speak>`, new Suggestions('Yes', `No, don't join`));
   conv.contexts.set('joinconference_send', 5, {
     callId: callId
   });
-}); 
+});
 
 /**
  * join.conference - yes
@@ -304,7 +302,7 @@ app.intent('leave.conference', async (conv, {target}) => {
     return;
   }
 
-  let { inConferenceCall, calls } = await getConferenceInfo(conv);
+  const { inConferenceCall, calls } = await getConferenceInfo(conv);
  
   if (!inConferenceCall) {
     conv.contexts.delete('joinconference_data');
@@ -314,10 +312,10 @@ app.intent('leave.conference', async (conv, {target}) => {
     return;
   }
 
-  let titles = [];
+  const titles = [];
   calls.forEach((call) => {
-    if (call.title === "") {
-      let placeholder = truncate(call.topicPlaceholder);
+    if (!call.title.length) {
+      const placeholder = truncate(call.topicPlaceholder);
       titles.push(placeholder.toLowerCase());
     } else {
       titles.push(call.title.toLowerCase());
@@ -326,9 +324,9 @@ app.intent('leave.conference', async (conv, {target}) => {
 
   // If not undefined just send them to leaveconference_send
   if (target) {
-    let i = titles.indexOf(target.toLowerCase());
-    if (i !== -1) {
-      let callId = calls[i].callId;
+    const i = titles.indexOf(target.toLowerCase());
+    if (i > -1) {
+      const callId = calls[i].callId;
       conv.ask(`<speak>Ready to leave the conference ${target}?</speak>`, new Suggestions('Yes', 'No'));
       conv.contexts.set('leaveconference_send', 5, {
         callId: callId
@@ -355,19 +353,19 @@ app.intent('leave.conference - collect.target', async conv => {
     return;
   }
 
-  let callId = null;
+  let callId;
   const { calls, titles } = conv.contexts.input['leaveconference_gettarget'].parameters;
   const { target } = conv.parameters;
   
-  let index = titles.indexOf(target);
-  if (index !== -1) {
+  const index = titles.indexOf(target);
+  if (index > -1) {
     callId = calls[index].callId;
   } else {
-    for (let call of calls) {
+    calls.forEach(call => {
       if (call.title.toLowerCase() === target.toLowerCase()) {
         callId = call.callId;
       } 
-    }
+    })
   }
 
   conv.ask(`<speak>Ready to leave the <break time="0.5s"/>${target}<break time="0.5s"/> conference call?</speak>`, new Suggestions('Yes', `No`));
@@ -389,9 +387,8 @@ app.intent('leave.conference - yes', async conv => {
   try {
     await circuit.leaveConference(callId);
   } catch(e) {
-    let prompt = 'There was an error trying to leave the conference. You might not be in the conference anymore. Is there anything else I can do for you?'
     conv.contexts.delete('leaveconference_data');
-    conv.ask(prompt);
+    conv.ask('There was an error trying to leave the conference. You might not be in the conference anymore. Is there anything else I can do for you?');
     conv.ask(new Suggestions('No, that\'s all', 'Yes'));
     conv.contexts.set('anything_else', 2);
     return;
@@ -605,29 +602,22 @@ function destroy() {;
   return Promise.all(promises);
 }
 
-// Lookup the conversations for the calls to get their title
 async function lookupConversations(client, calls) {
-  let promises = [];
-  calls.forEach(call => {
-    promises.push(client.getConversationById(call.convId));
+  let i = 0;
+  const result = [];
+  const convIds = calls.map(call => call.convId);
+  const conversations = await client.getConversationsByIds(convIds);
+  conversations.forEach(conversation => {
+    const data = {
+      title: conversation.topic,
+      callId: calls[i].callId,
+      topicPlaceholder: conversation.topicPlaceholder,
+      participants: conversation.participants
+    };
+    result.push(data);
+    i++;
   });
-  return Promise.all(promises)
-  .then(res => {
-    return res.map((res, idx) => {
-      // Used to be res.title (copied from JSBin examples) 
-      // but there isn't a title attribute in the payload.
-      // If there is more than one conf with same name we 
-      // include the placeholder to show what users are
-      // in the conference so the user knows which is 
-      // which. 
-      return {
-        title: res.topic, 
-        callId: calls[idx].callId, 
-        topicPlaceholder: res.topicPlaceholder, 
-        participants: res.participants
-      };
-    });
-  });
+  return result;
 }
 
 /**
