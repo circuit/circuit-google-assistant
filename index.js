@@ -37,13 +37,13 @@ app.intent('Default Welcome Intent', async conv => {
   // Create a session for this user at the beginning so user
   // is logged on to Circuit by the time needed
   if (!sessions[conv.user.id]) {
-    createSession(conv.user);
+    await createSession(conv.user);
   }
 
-  const { inConferenceCall, conferenceAvailable } = await getConferenceInfo(conv),
-  suggestions = ["Send a message", "Make a call"];
   conv.ask(`What can I do for you?`);
- 
+  const suggestions = ["Send a message", "Make a call"];
+  const { inConferenceCall, conferenceAvailable } = await getConferenceInfo(conv);
+  
   if (inConferenceCall && conferenceAvailable) {
     suggestions.push("Leave a conference");
     suggestions.push("Join a conference");
@@ -606,6 +606,9 @@ async function lookupConversations(client, calls) {
   let i = 0;
   const result = [];
   const convIds = calls.map(call => call.convId);
+  if(!convIds.length){
+    return result;
+  }
   const conversations = await client.getConversationsByIds(convIds);
   conversations.forEach(conversation => {
     const data = {
