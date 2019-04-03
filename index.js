@@ -276,6 +276,39 @@ async function getCircuit(conv) {
   }
 }
 
+/**
+ * Traverses through the presence types to set to available or dnd
+ */
+async function traversePresence(conv) {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const { presenceType } = conv.contexts.input['setpresence_data'].parameters;
+  const presence = presenceType.toLowerCase();
+  const { untilTime } = conv.contexts.input['setpresence_data'].parameters;
+  const { duration } = conv.contexts.input['setpresence_data'].parameters;
+
+  if (presence === 'available') {
+    await circuit.setPresenceAvailable();
+    conv.ask(`Your online presence is set to ${presence}. Anything Else?`);
+    conv.contexts.set('anything_else', 5);
+  } else if (presence === 'dnd' || presence === 'do not disturb') { 
+      if(untilTime || duration){
+        await circuit.setPresenceDnd(untilTime, duration);
+        conv.ask(`Your online presence is set to ${presence}. Anything Else?`);
+        conv.contexts.set('anything_else', 5);
+      } else {
+          conv.ask(`How long would you like to be set to DND?`);
+          conv.contexts.set('setdnd_time', 5);
+      }
+  } else {
+      conv.ask(`I didn't catch the presence. What would you like to be set to?`);
+      conv.contexts.set('setPresence_getPresence', 5);
+  }
+  
+}
 
 /**
  * Set a logged on user's presence
@@ -285,41 +318,28 @@ app.intent('set.presence', async conv => {
   if (!circuit) {
     return;
   }
-  const { presenceType } = conv.contexts.input['setpresence_data'].parameters;
-  const presence = presenceType.toLowerCase();
-  
-  const { untilTime } = conv.contexts.input['setpresence_data'].parameters;
-  const { duration } = conv.contexts.input['setpresence_data'].parameters;
+  await traversePresence(conv);
+});
 
-  if (presence == 'available') {
-    await circuit.setPresenceAvailable()
-    conv.ask(`Your online presence is set to AVAILABLE. Anything Else?`);
-    conv.contexts.set('anything_else', 5);
-  } else if ((presence == 'dnd' || presence == 'do not disturb') && (untilTime != '' || duration != '')) { 
-      await circuit.setPresenceDnd(untilTime, duration)
-      conv.ask(`Your online presence is set to Do Not Disturb. Anything Else?`);
-      conv.contexts.set('anything_else', 5);
-  } else if ((presence == 'dnd' || presence == 'do not disturb') && (!untilTime && !duration)) {
-      conv.ask(`How long would you like to be set to Do Not Disturb?`);
-      conv.contexts.set('setdnd_time', 5);
-  } else {
-      conv.ask(`I didn't catch the presence. What would you like to be set to?`);
-      conv.contexts.set('setPresence_getPresence', 5, { 
-    });
+/**
+ * collects the presenceType of an online user
+ */
+app.intent('set.presence - collect presenceType', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
   }
-  return;
+  await traversePresence(conv);
 });
 
 /**
  * Set a logged on user to dnd
 */
-app.intent('set.presence - dnd', async conv =>
-{
+app.intent('set.presence - dnd', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
     return;
   }
-
   const { untilTime } = conv.contexts.input['setpresence_data'].parameters;
   const { duration } = conv.contexts.input['setpresence_data'].parameters;
 
@@ -329,86 +349,77 @@ app.intent('set.presence - dnd', async conv =>
 });
 
 /**
- * Set a logged on user to dnd
+ * Retrieves the presence of an online user
 */
-app.intent('get.presence', async conv =>
-{
+app.intent('get.presence', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
     return;
   }
-  const yourPresence = await circuit.getUserPresence();
-  conv.ask(`Your online presence is set to ${yourPresence}. Anything else?`);
+  const userPresence = await circuit.getUserPresence();
+  conv.ask(`Your online presence is set to ${userPresence}. Anything else?`);
   conv.contexts.set('anything_else', 5);
 });
 
 /**
- * Set a logged on user to dnd
+ * Retrieves the remaining time left in dnd
 */
-app.intent('get.dndTime', async conv =>
-{
+app.intent('get.dndTime', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
     return;
   }
 
-  const yourPresence = await circuit.getUserPresence();
-  if(yourPresence == 'DND'){
+  const userPresence = await circuit.getUserPresence();
+  if (userPresence === 'DND') {
     const timeLeft = await circuit.getDndTime();
     const mLeft = Math.floor((timeLeft - Date.now())/60000);//sets the time left in minutes
 
-    if(mLeft > 60){
+    if (mLeft > 60) {
       conv.ask(`Your DND is set until ${Math.floor(mLeft/60)} hour(s) and ${Math.floor(((mLeft/60)- Math.floor(mLeft/60))*60)} minute(s) from now. Anything Else?`);
       conv.contexts.set('anything_else', 5);
-    }
-    else  {
-      conv.ask(`Your DND is set until ${mLeft} minutes from now. Would there be anything else?`);
+    } else  {
+      conv.ask(`Your DND is set until ${mLeft} minute(s) from now. Would there be anything else?`);
       conv.contexts.set('anything_else', 5);
     } 
-  }
-  else  {
-    conv.ask('It seems that you are not set to Do Not Disturb. Would you like to do anything else?');
-    conv.contexts.set('anything_else', 5);
+  } else  {
+      conv.ask('It seems that you are not set to Do Not Disturb. Would you like to do anything else?');
+      conv.contexts.set('anything_else', 5);
   }
 });
 
 /**
  * Set a logged on user's status message
 */
-app.intent('set.statusmessage', async conv =>
-{
+app.intent('set.statusmessage', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
     return;
   }
-
   const {statusMessage} = conv.contexts.input['setstatusmessage_data'].parameters;
 
   await circuit.setMyStatusMessage(statusMessage);
-
   conv.ask(`Your status message is now set to '${statusMessage}'. May I do anything else for you today?`);
   conv.contexts.set('anything_else', 5);
 });
 
 /**
- * Set a logged on user's status message
+ * Retrieve a logged on user's status message
 */
-app.intent('get.statusmessage', async conv =>
-{
+app.intent('get.statusmessage', async conv => {
   const circuit = await getCircuit(conv);
   if (!circuit) {
     return;
   }
 
-  let statusMessage = await circuit.getMyStatusMessage();
-  if(statusMessage != ''){
+  const statusMessage = await circuit.getMyStatusMessage();
+  if (statusMessage !== '') {
     conv.ask(`Your status message is '${statusMessage}'. May I do anything else for you today?`);
     conv.contexts.set('anything_else', 5);
-  }
-  else if(statusMessage ==''){
-    conv.ask(`It appears your status message is blank. May I do anything else for you today?`); 
-    conv.contexts.set('anything_else', 5);
-    conv.ask(new Suggestions('Set status Message', 'Yes, please','No, thank you'));
+  } else if (statusMessage === '') {
+      conv.ask(`It appears your status message is blank. May I do anything else for you today?`);
+      conv.contexts.set('anything_else', 5);
+      conv.ask(new Suggestions('Set status Message', 'Yes, please', 'No, thank you'));
   }
 
 });
