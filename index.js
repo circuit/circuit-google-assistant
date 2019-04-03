@@ -295,7 +295,7 @@ async function traversePresence(conv) {
     conv.ask(`Your online presence is set to ${presence}. Anything Else?`);
     conv.contexts.set('anything_else', 5);
   } else if (presence === 'dnd' || presence === 'do not disturb') { 
-      if(untilTime || duration){
+      if (untilTime || duration) {
         await circuit.setPresenceDnd(untilTime, duration);
         conv.ask(`Your online presence is set to ${presence}. Anything Else?`);
         conv.contexts.set('anything_else', 5);
@@ -322,7 +322,7 @@ app.intent('set.presence', async conv => {
 });
 
 /**
- * collects the presenceType of an online user
+ * collects the presenceType of an online user and sets the presence
  */
 app.intent('set.presence - collect presenceType', async conv => {
   const circuit = await getCircuit(conv);
@@ -370,8 +370,7 @@ app.intent('get.dndTime', async conv => {
     return;
   }
 
-  const userPresence = await circuit.getUserPresence();
-  if (userPresence === 'DND') {
+  if (Circuit.enums.PresenceState.DND) {
     const timeLeft = await circuit.getDndTime();
     const mLeft = Math.floor((timeLeft - Date.now())/60000);//sets the time left in minutes
 
@@ -398,7 +397,7 @@ app.intent('set.statusmessage', async conv => {
   }
   const {statusMessage} = conv.contexts.input['setstatusmessage_data'].parameters;
 
-  await circuit.setMyStatusMessage(statusMessage);
+  await circuit.client.setStatusMessage(statusMessage)
   conv.ask(`Your status message is now set to '${statusMessage}'. May I do anything else for you today?`);
   conv.contexts.set('anything_else', 5);
 });
@@ -412,8 +411,8 @@ app.intent('get.statusmessage', async conv => {
     return;
   }
 
-  const statusMessage = await circuit.getMyStatusMessage();
-  if (statusMessage !== '') {
+  const statusMessage = await circuit.client.getStatusMessage();
+  if (statusMessage) {
     conv.ask(`Your status message is '${statusMessage}'. May I do anything else for you today?`);
     conv.contexts.set('anything_else', 5);
   } else if (statusMessage === '') {

@@ -124,24 +124,17 @@ class CircuitClient {
       }]);
     });
   }
-  
-  async setMyStatusMessage(statusMessage) {
-    return this.client.setStatusMessage(statusMessage)
-    .catch(console.error);
-  }
-
-  getMyStatusMessage() {
-    return this.client.getStatusMessage()
-    .catch(console.error);
-  }
 
   async setPresenceAvailable() {
     const statusMsg = await this.client.getStatusMessage();
-
-    return this.client.setPresence({
-      state: Circuit.Enums.PresenceState.AVAILABLE,
-      statusMessage: statusMsg
-    }).catch(console.error);
+    try {
+      return this.client.setPresence({
+        state: Circuit.Enums.PresenceState.AVAILABLE,
+        statusMessage: statusMsg
+      });
+    } catch {
+        console.log("Could not set user to available");
+    }
   }
   
   async setPresenceDnd(untilTime, duration) {
@@ -155,20 +148,20 @@ class CircuitClient {
         state: Circuit.Enums.PresenceState.DND,
         dndUntil: untilTime,
         statusMessage: statusMsg
-      }).catch(console.error);
+      });
     } else if (duration !== '') {
         if (duration.unit === 'min') {
           return this.client.setPresence({
             state: Circuit.Enums.PresenceState.DND,
             dndUntil: Date.now() + (60000 * duration.amount), //sets to 1 minute in ms * amount of minutes
             statusMessage: statusMsg
-          }).catch(console.error);
+          });
         } else if (duration.unit === 'h') {
           return this.client.setPresence({
             state: Circuit.Enums.PresenceState.DND,
             dndUntil: Date.now() + (3600000 * duration.amount), //sets to 1 hour in ms * amount of hours
             statusMessage: statusMsg
-          }).catch(console.error);
+          });
         } else {
           console.log('User has not entered a time in hours or minutes. Presence cannot be set.');
         } 
