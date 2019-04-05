@@ -66,8 +66,8 @@ app.intent('add.participant.to.group', async (conv, { convName, user }) => {
     return;
   }
 
+  // No conversation found
   if (!convs.length) {
-    // No conversation found
     conv.ask(`I cannot find any conversation called ${convName}. What's the name?`);
     conv.contexts.set('addparticipantgroup_getconv', 5);
     return;
@@ -97,8 +97,8 @@ app.intent('add.participant.to.group - collect.conv', async conv => {
   const convName = conv.parameters.convName;
   let convs = await circuit.searchConversationsByName(convName);
 
+  // No conversation found
   if (!convs.length) {
-    // No conversation found
     conv.ask(`I cannot find any conversation called ${convName}. What's the name?`);
     return;
   } else if (convs.length > 1) {
@@ -143,8 +143,8 @@ app.intent('add.participant.to.group - collect.user', async conv => {
   conv.contexts.set('addparticipantgroup_data', 5, { users: users });
   conv.contexts.delete('addparticipantgroup_getuser');
 
+  // No conversation found
   if (!convs.length) {
-    // No conversation found
     conv.ask(`Thank you. I did not find the conversation name that you gave me earlier. What is it again?`);
     conv.contexts.set('addparticipantgroup_getconv', 5);
     return;
@@ -186,16 +186,16 @@ app.intent('add.participant.to.group - yes', async conv => {
   const { users, convs } = conv.contexts.input['addparticipantgroup_data'].parameters;
   const thisUser = circuit.user;
 
+  // User is already in the conversation
   if (convs[0].participants.some(userId => userId === users[0].userId)) {
-    // User is already in the conversation
     conv.ask(`${users[0].displayName} is already a participant in ${convs[0].topic}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
     conv.contexts.delete('addparticipantgroup_data');
     conv.contexts.set('anything_else', 2);
     return;
   }
 
+  // Conversation is moderated and user is not a moderator
   if (convs[0].isModerated && !convs[0].moderators.some(userId => userId === thisUser.userId)) {
-    // Conversation is moderated and user is not a moderator
     conv.ask(`Sorry, but you are not a moderator in ${convs[0].topic} so ${users[0].displayName} cannot be added. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
     conv.contexts.delete('addparticipantgroup_data');
     conv.contexts.set('anything_else', 2);
@@ -218,9 +218,10 @@ app.intent('add.participant.to.one', async (conv, { thirdUser, target }) => {
   }
 
   const thirdUsers = await searchUsers(circuit, conv, thirdUser);
-  const params = {};
-  params.thirdUsers = thirdUsers;
-  params.targetQuery = conv.parameters.target;
+  const params = {
+    thirdUsers: thirdUsers,
+    targetQuery: conv.parameters.target
+  }
 
   // Save results to context
   conv.contexts.set('addparticipantone_data', 5, params);
@@ -267,19 +268,19 @@ app.intent('add.participant.to.one - collect.user', async conv => {
   // One user found beyond this point
   const params = conv.contexts.input['addparticipantone_data'].parameters;
 
+  // Add thirdUser to context
   if (thirdUsers.length !== 1) {
-    // Add thirdUser to context
     params.thirdUsers = [users[0]];
     conv.contexts.set('addparticipantone_data', 5, params);
     conv.ask('Thank you.');
   }
 
+  // Searches for target user
   if (!targetUsers) {
-    // Searches for target user
     targetUsers = await searchUsers(circuit, conv, targetQuery);
 
+    // Add the target user to context
     if (targetUsers.length !== 1) {
-      // Add the target user to context
       params.targetUsers = targetUsers;
       conv.contexts.set('addparticipantone_data', 5, params);
 
@@ -288,8 +289,8 @@ app.intent('add.participant.to.one - collect.user', async conv => {
     }
   }
 
+  // Add the target user to context
   if (targetUsers.length !== 1) {
-    // Add the target user to context
     params.targetUsers = [users[0]];
     conv.contexts.set('addparticipantone_data', 5, params);
   }
@@ -323,16 +324,16 @@ app.intent('add.participant.to.one - yes', async conv => {
   const { thirdUsers, targetUsers } = conv.contexts.input['addparticipantone_data'].parameters;
   const conversation = await circuit.getDirectConversationWithUser(targetUsers[0].userId);
 
+  // No direct conversation found
   if (!conversation) {
-    // No direct conversation found
     conv.ask(`You are not in a direct conversation with ${targetUsers[0].displayName}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
     conv.contexts.delete('addparticipantone_data');
     conv.contexts.set('anything_else', 2);
     return;
   }
 
+  // thirdUser and targetUser are the same user
   if (thirdUsers[0].userId === targetUsers[0].userId) {
-    // thirdUser and targetUser is the same user
     conv.ask(`I cannot add ${thirdUsers[0].displayName} to his own conversation. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
     conv.contexts.delete('addparticipantone_data');
     conv.contexts.set('anything_else', 2);
@@ -369,8 +370,8 @@ app.intent('remove.participant', async (conv, { user, convName }) => {
     return;
   }
 
+  // No conversation found
   if (!convs.length) {
-    // No conversation found
     conv.ask(`I cannot find any conversation called ${convName}. What's the name?`);
     conv.contexts.set('removeparticipant_getconv', 5);
     return;
@@ -400,8 +401,8 @@ app.intent('remove.participant - collect.conv', async conv => {
   const convName = conv.parameters.convName;
   let convs = await circuit.searchConversationsByName(convName);
 
+  // No conversation found
   if (!convs.length) {
-    // No conversation found
     conv.ask(`I cannot find any conversation called ${convName}. What's the name?`);
     return;
   } else if (convs.length > 1) {
@@ -446,8 +447,8 @@ app.intent('remove.participant - collect.user', async conv => {
   conv.contexts.set('removeparticipant_data', 5, { users: users });
   conv.contexts.delete('removeparticipant_getuser');
 
+  // No conversation found
   if (!convs.length) {
-    // No conversation found
     conv.ask(`Thank you. I did not find the conversation name that you gave me earlier. What is it again?`);
     conv.contexts.set('removeparticipant_getconv', 5);
     return;
@@ -490,16 +491,16 @@ app.intent('remove.participant - yes', async conv => {
   const { users, convs } = conv.contexts.input['removeparticipant_data'].parameters;
   const thisUser = circuit.user;
 
+  // User is not in the conversation
   if (!convs[0].participants.some(userId => userId === users[0].userId)) {
-    // User is not in the conversation
     conv.ask(`${users[0].displayName} is not a participant in ${convs[0].topic}. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
     conv.contexts.delete('removeparticipant_data');
     conv.contexts.set('anything_else', 2);
     return;
   }
 
+  // Conversation is moderated and thisUser is not a moderator
   if (convs[0].isModerated && !convs[0].moderators.some(userId => userId === thisUser.userId)) {
-    // Conversation is moderated and thisUser is not a moderator
     conv.ask(`Sorry, but you are not a moderator in ${convs[0].topic} so ${users[0].displayName} cannot be removed. Is there anything else I can do for you?`, new Suggestions('Yes', 'No'));
     conv.contexts.delete('removeparticipant_data');
     conv.contexts.set('anything_else', 2);
