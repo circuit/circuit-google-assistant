@@ -22,8 +22,12 @@ class CircuitClient {
 
     // Function bindings
     this.sendClickToCallRequest = this.client.sendClickToCallRequest;
-    this.getStartedCalls = this.client.getStartedCalls;
+    this.leaveConference = this.client.leaveConference;
     this.getConversationsByIds = this.client.getConversationsByIds;
+    this.getLoggedOnUser = this.client.getLoggedOnUser;
+    this.getStartedCalls = this.client.getStartedCalls;
+    this.findCall = this.client.findCall;
+    this.getActiveRemoteCalls = this.client.getActiveRemoteCalls;
     this.getDevices = this.client.getDevices;
     this.joinConference = this.client.joinConference;
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
@@ -74,7 +78,6 @@ class CircuitClient {
 
       self.client.addEventListener('basicSearchResults', searchResultHandler);
       self.client.addEventListener('searchStatus', searchStatusHandler);
-
       searchId = await self.client.startUserSearch(query);
     });
   }

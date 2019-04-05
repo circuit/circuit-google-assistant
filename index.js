@@ -33,19 +33,30 @@ expressApp.listen(process.env.PORT || 8080);
 /**
  * Default Welcome Intent
  */
-app.intent('Default Welcome Intent', conv => {
+app.intent('Default Welcome Intent', async conv => {
   // Create a session for this user at the beginning so user
   // is logged on to Circuit by the time needed
   if (!sessions[conv.user.id]) {
-    createSession(conv.user);
+    await createSession(conv.user);
   }
 
   conv.ask(`What can I do for you?`);
-  conv.ask(new Suggestions('Send a message', 'Make a call'));
+  const suggestions = ['Send a message', 'Make a call'];
+  const { inConferenceCall, conferenceAvailable } = await getConferenceInfo(conv);
+  
+  if (inConferenceCall && conferenceAvailable) {
+    suggestions.push('Leave a conference');
+    suggestions.push('Join a conference');
+  } else if (conferenceAvailable) {
+    suggestions.push('Join a conference');
+  } else if (inConferenceCall) {
+    suggestions.push('Leave a conference');
+  } 
+  conv.ask(new Suggestions(suggestions));
 });
 
 /**
- * message.send
+ * send.message
  */
 app.intent('send.message', async (conv, {target, message}) => {
   const circuit = await getCircuit(conv);
@@ -137,6 +148,243 @@ app.intent('send.message - no', async conv => {
   conv.ask(new Suggestions('No, that\'s all', 'Yes'));
   conv.contexts.set('anything_else', 2);
 });
+
+/**
+ * join.conference
+ */
+app.intent('join.conference', async (conv, { target }) => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const { inConferenceCall, conferenceAvailable, onGoingCalls } = await getConferenceInfo(conv);
+
+  if (inConferenceCall) {
+    conv.ask('<speak>You\'re already in a conference call. Can I do anything else for you?</speak>');
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2); 
+    return;
+  } 
+
+  if (!conferenceAvailable) {
+    conv.ask(`<speak>No conferences available to join. Can I do something else for you?</speak>`);
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
+
+  // If target isn't undefined
+  if (target) {
+    const matches = onGoingCalls.filter(c=> c.title.toLowerCase() === target.toLowerCase());
+
+    if (!matches.length) {
+      const prompt = `<speak>I cannot find any conference call with name ${target}. Here are the names of your current ongoing conferences. 
+      Which would you like to join?</speak>`;
+      const titles = onGoingCalls.map(call => call.title.toLowerCase());
+      conv.ask(prompt, new Suggestions(titles));
+      conv.contexts.set('joinconference_gettarget', 5, {
+        onGoingCalls: onGoingCalls
+      });
+      return;
+    }
+
+    if (matches.length === 1) {
+      // One result found. Ask user for confirmation.
+      const callId = matches[0].callId;
+      conv.ask(`<speak>Ready to join the <break time="0.5s"/>${target}<break time="0.5s"/> conference call?</speak>`, new Suggestions('Yes', `No, don't join`));
+      conv.contexts.set('joinconference_send', 5, {
+        callId: callId
+      });
+      return;
+    }
+
+    // Multiple matches. Tell user that they can either re-enter a conference or just join the first match.
+    conv.ask(`More than one conference found with the name ${target}. Joining the first ${target} conference.`);
+    const callId = matches[0].callId;
+    conv.ask(`<speak>Ready to join the <break time="0.5s"/>${target}<break time="0.5s"/> conference call?</speak>`, new Suggestions('Yes', `No, don't join`));
+    conv.contexts.set('joinconference_send', 5, {
+      callId: callId
+    });
+    return;
+  }
+
+  const titles = onGoingCalls.map(call => call.title ? call.title : truncate(call.topicPlaceholder));
+  conv.ask('<speak>Which conference would you like to join? Here are your ongoing conferences.</speak>', new Suggestions(titles));
+  conv.contexts.set('joinconference_gettarget', 5, {
+    onGoingCalls: onGoingCalls, 
+    titles: titles
+  });
+}); 
+
+
+/**
+ * join.conference - collect.target
+ */
+app.intent('join.conference - collect.target', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  let callId;
+  const { onGoingCalls, titles } = conv.contexts.input['joinconference_gettarget'].parameters;
+  const { target } = conv.parameters;
+
+  // Lowercase titles so if the name of the conference is Test and they type in test
+  // it will still be found. That is the reason for the lowercasing the target and titles.
+  const lcTitles = titles.map(title => title.toLowerCase());
+  const index = lcTitles.indexOf(target);
+
+  if (index > -1) {
+    callId = onGoingCalls[index].callId;
+  } else {
+    onGoingCalls.forEach(call => {
+      if (call.title.toLowerCase() === target.toLowerCase()) {
+        callId = call.callId;
+      } 
+    })
+  }  
+  conv.ask(`<speak>Ready to join the <break time="0.5s"/>${target}<break time="0.5s"/> conference call?</speak>`, new Suggestions('Yes', `No, don't join`));
+  conv.contexts.set('joinconference_send', 5, {
+    callId: callId
+  });
+});
+
+/**
+ * join.conference - yes
+ */
+app.intent('join.conference - yes', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  const { clientId } = await findWebClient(circuit);
+  const { callId } = conv.contexts.input['joinconference_send'].parameters;
+  await circuit.joinConference(callId, {audio: true, video: false}, clientId);
+  conv.contexts.delete('joinconference_data');
+  conv.ask('Conference joined. Is there anything else I can do for you?');
+  conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+  conv.contexts.set('anything_else', 2);
+}); 
+
+/**
+ * join.conference - no
+ */
+app.intent('join.conference - no', conv => {
+  conv.contexts.delete('joinconference_data');
+  conv.ask('Conference not joined. Is there anything else I can do for you?');
+  conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+  conv.contexts.set('anything_else', 2);
+});
+
+/**
+ * leave.conference
+ */
+app.intent('leave.conference', async (conv, {target}) => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const { inConferenceCall, joinedCalls } = await getConferenceInfo(conv);
+  console.log(joinedCalls, "calls in leave conference");
+ 
+  if (!inConferenceCall) {
+    conv.contexts.delete('joinconference_data');
+    conv.ask('<speak>You aren\'t in any conference calls. Is there anything else I can do for you?</speak>');
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2); 
+    return;
+  }
+
+  const titles = joinedCalls.map(call => call.title ? call.title : truncate(call.topicPlaceholder));
+  // If not undefined just send them to leaveconference_send
+  if (target) {
+    const i = titles.indexOf(target.toLowerCase());
+    if (i > -1) {
+      const callId = joinedCalls[i].callId;
+      conv.ask(`<speak>Ready to leave the conference ${target}?</speak>`, new Suggestions('Yes', 'No'));
+      conv.contexts.set('leaveconference_send', 5, {
+        callId: callId
+      });
+      return;
+    }
+    conv.ask(`<speak>You are not in a conference named ${target}.`);
+  }
+
+  conv.ask(`<speak>Here are the conferences you're in. Which would you like to leave?</speak>`, new Suggestions(titles));
+  conv.contexts.set('leaveconference_gettarget', 5, {
+    joinedCalls: joinedCalls,
+    titles: titles
+  });
+}); 
+
+/**
+ * join.conference - collect.target
+ */
+app.intent('leave.conference - collect.target', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  let callId;
+  const { joinedCalls, titles } = conv.contexts.input['leaveconference_gettarget'].parameters;
+  const { target } = conv.parameters;
+  
+  const i = titles.indexOf(target);
+  if (i > -1) {
+    callId = joinedCalls[i].callId;
+  } else {
+    joinedCalls.forEach(call => {
+      if (call.title.toLowerCase() === target.toLowerCase()) {
+        callId = call.callId;
+      } 
+    })
+  }
+
+  conv.ask(`<speak>Ready to leave the <break time="0.5s"/>${target}<break time="0.5s"/> conference call?</speak>`, new Suggestions('Yes', `No`));
+  conv.contexts.set('leaveconference_send', 5, {
+    callId: callId
+  });
+}); 
+
+/**
+ * leave.conference - yes
+ */
+app.intent('leave.conference - yes', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const { callId } = conv.contexts.input['leaveconference_send'].parameters;
+  try {
+    await circuit.leaveConference(callId);
+  } catch(e) {
+    conv.contexts.delete('leaveconference_data');
+    conv.ask('There was an error trying to leave the conference. You might not be in the conference anymore. Is there anything else I can do for you?');
+    conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+    conv.contexts.set('anything_else', 2);
+    return;
+  }
+  conv.contexts.delete('leaveconference_data');
+  conv.ask('Conference left. Is there anything else I can do for you?');
+  conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+  conv.contexts.set('anything_else', 2);
+});
+
+/**
+ * leave.conference - no
+ */
+app.intent('leave.conference - no', conv => {
+  conv.contexts.delete('leaveconference_data');
+  conv.ask('Conference not joined. Is there anything else I can do for you?');
+  conv.ask(new Suggestions('No, that\'s all', 'Yes'));
+  conv.contexts.set('anything_else', 2);
+});
+
 
 /**
 * call.user
@@ -240,7 +488,6 @@ app.intent('call.user - no', async conv => {
   conv.contexts.set('anything_else', 2);
 });
 
-
 /**
  * Common intents
  */
@@ -331,3 +578,63 @@ function destroy() {;
   return Promise.all(promises);
 }
 
+async function lookupConversations(client, calls) {
+  const result = [];
+  const convIds = [];
+  const callsMap = {}; // Hashmap of convIds to callIds 
+
+  calls.forEach(call => {
+    callsMap[call.convId] = call.callId;
+    convIds.push(call.convId);
+  });
+
+  if (!convIds.length) {
+    return result;
+  }
+
+  const conversations = await client.getConversationsByIds(convIds);
+  conversations.forEach(conversation => {
+    const data = {
+      title: conversation.topic,
+      callId: callsMap[conversation.convId],
+      topicPlaceholder: conversation.topicPlaceholder,
+      participants: conversation.participants
+    };
+    result.push(data);
+  });
+  return result;
+}
+
+/**
+ * Returns all necessary conference info needed for joining and leaving a conference.
+ */
+async function getConferenceInfo(conv){
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const startedCalls = await circuit.getStartedCalls();
+  const onGoingCalls = await lookupConversations(circuit, startedCalls);
+  const remCalls = await circuit.getActiveRemoteCalls();
+  const joinedCalls = await lookupConversations(circuit, remCalls);
+  const conferenceAvailable = !!startedCalls.length
+  const inConferenceCall = !!remCalls.length;
+
+  return {
+    inConferenceCall,
+    conferenceAvailable,
+    joinedCalls,
+    onGoingCalls
+  }
+}
+
+/**
+ * Simple truncate function as suggestions in dialogflow can't be more than 25 characters
+ */
+function truncate(str){
+  if(str.length > 25) {
+    return str.substring(0,25);
+  } 
+  return str;
+}
