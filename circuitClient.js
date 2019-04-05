@@ -18,7 +18,7 @@ class CircuitClient {
         })[0];
       }
       return c;
-    };
+    }
 
     // Function bindings
     this.addParticipant = this.client.addParticipant;
@@ -33,9 +33,7 @@ class CircuitClient {
 
     // Properties
     Object.defineProperty(this, 'user', {
-      get: _ => {
-        return this.client.loggedOnUser;
-      }
+      get: _ => { return this.client.loggedOnUser; }
     });
   }
 
@@ -43,7 +41,7 @@ class CircuitClient {
   /// Public functions
   /////////////////////////////////////
 
-  async searchUsers(query) {
+  async searchUsers (query) {
     const self = this;
     return new Promise(async resolve => {
       let searchId;
@@ -119,19 +117,17 @@ class CircuitClient {
       self.client.addEventListener('basicSearchResults', searchResultHandler);
       self.client.addEventListener('searchStatus', searchStatusHandler);
 
-      searchId = await self.client.startBasicSearch([
-        {
-          scope: Circuit.Enums.SearchScope.CONVERSATIONS,
-          searchTerm: query
-        }
-      ]);
+      searchId = await self.client.startBasicSearch([{
+        scope: Circuit.Enums.SearchScope.CONVERSATIONS,
+        searchTerm: query
+      }]);
     });
   }
 
   /**
    * logon
    */
-  logon(accessToken) {
+  logon (accessToken) {
     return this.client.logon(accessToken ? { accessToken: accessToken } : undefined)
       .then(user => console.log(`Logged on to Circuit: ${user.displayName}`));
   }
