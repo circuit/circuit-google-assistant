@@ -13,8 +13,6 @@ const SESSION_TIMEOUT = 5 * 60 * 1000; // 5min session timeout
 
 const sessions = {}; // Active sessions
 
-const callsMap = {}; // Hashmap of convIds to callIds 
-
 const app = dialogflow({clientId: CLIENT_ID});
 
 // Create express app to for handling the /_ah/start request posted
@@ -160,7 +158,6 @@ app.intent('join.conference', async (conv, { target }) => {
     return;
   }
 
-  // const matches = [];
   const { inConferenceCall, conferenceAvailable, onGoingCalls } = await getConferenceInfo(conv);
 
   if (inConferenceCall) {
@@ -584,6 +581,7 @@ function destroy() {;
 async function lookupConversations(client, calls) {
   const result = [];
   const convIds = [];
+  const callsMap = {}; // Hashmap of convIds to callIds 
 
   calls.forEach(call => {
     callsMap[call.convId] = call.callId;
