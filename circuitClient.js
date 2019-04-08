@@ -138,12 +138,9 @@ class CircuitClient {
   }
   
   async setPresenceDnd(untilTime, duration) {
-
     const statusMsg = await this.client.getStatusMessage();
-
     if (untilTime !== '') {
       untilTime = new Date(untilTime).getTime();
-
       return this.client.setPresence({
         state: Circuit.Enums.PresenceState.DND,
         dndUntil: untilTime,

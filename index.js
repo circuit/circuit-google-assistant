@@ -371,7 +371,7 @@ app.intent('get.dndTime', async conv => {
   }
   const userPresence = await circuit.getUserPresence();
 
-  if (userPresence === 'DND') {
+  if (userPresence === Circuit.Enums.PresenceState.DND) {
     const timeLeft = await circuit.getDndTime();
     const mLeft = Math.floor((timeLeft - Date.now()) / 60000);//sets the time left in minutes
 
@@ -396,7 +396,7 @@ app.intent('set.statusmessage', async conv => {
   if (!circuit) {
     return;
   }
-  const {statusMessage} = conv.contexts.input['setstatusmessage_data'].parameters;
+  const { statusMessage } = conv.contexts.input['setstatusmessage_data'].parameters;
 
   await circuit.client.setStatusMessage(statusMessage)
   conv.ask(`Your status message is now set to '${statusMessage}'. May I do anything else for you today?`);
