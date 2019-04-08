@@ -322,7 +322,7 @@ app.intent('set.presence', async conv => {
 });
 
 /**
- * collects the presenceType of an online user and sets the presence
+ * Collects the presenceType of an online user and sets the presence
  */
 app.intent('set.presence - collect presenceType', async conv => {
   const circuit = await getCircuit(conv);
@@ -369,16 +369,17 @@ app.intent('get.dndTime', async conv => {
   if (!circuit) {
     return;
   }
+  const userPresence = await circuit.getUserPresence();
 
-  if (Circuit.enums.PresenceState.DND) {
+  if (userPresence === 'DND') {
     const timeLeft = await circuit.getDndTime();
-    const mLeft = Math.floor((timeLeft - Date.now())/60000);//sets the time left in minutes
+    const mLeft = Math.floor((timeLeft - Date.now()) / 60000);//sets the time left in minutes
 
     if (mLeft > 60) {
-      conv.ask(`Your DND is set until ${Math.floor(mLeft/60)} hour(s) and ${Math.floor(((mLeft/60)- Math.floor(mLeft/60))*60)} minute(s) from now. Anything Else?`);
+      conv.ask(`You are set to "Do Not Disturb" for another ${Math.floor(mLeft / 60)} hour(s) and ${Math.floor(((mLeft / 60)- Math.floor(mLeft / 60)) * 60)} minute(s). Anything Else?`);
       conv.contexts.set('anything_else', 5);
     } else  {
-      conv.ask(`Your DND is set until ${mLeft} minute(s) from now. Would there be anything else?`);
+      conv.ask(`You are set to "Do Not Disturb" for another ${mLeft} minute(s). Would there be anything else?`);
       conv.contexts.set('anything_else', 5);
     } 
   } else  {
@@ -415,7 +416,7 @@ app.intent('get.statusmessage', async conv => {
   if (statusMessage) {
     conv.ask(`Your status message is '${statusMessage}'. May I do anything else for you today?`);
     conv.contexts.set('anything_else', 5);
-  } else if (statusMessage === '') {
+  } else {
       conv.ask(`It appears your status message is blank. May I do anything else for you today?`);
       conv.contexts.set('anything_else', 5);
       conv.ask(new Suggestions('Set status Message', 'Yes, please', 'No, thank you'));
