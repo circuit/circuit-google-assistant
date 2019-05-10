@@ -27,8 +27,7 @@ expressApp.get('/_ah/start', (req, res) => {
 expressApp.use(bodyParser.json(), app);
 
 // Start server
-expressApp.listen(process.env.PORT || 8080);
-
+expressApp.listen(process.env.PORT || 8080, () => console.log(`Server started`));
 
 /**
  * Default Welcome Intent
