@@ -133,8 +133,8 @@ class CircuitClient {
         state: Circuit.Enums.PresenceState.AVAILABLE,
         statusMessage: statusMsg
       });
-    } catch {
-        console.log("Could not set user to available");
+    } catch (e) {
+        console.log('Could not set user to available', e);
     }
   }
   
