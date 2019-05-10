@@ -68,7 +68,7 @@ app.intent('send.message', async (conv, {target, message}) => {
     // One result found. Ask user for confirmation.
     const { convId } = users.length && await circuit.getDirectConversationWithUser(users[0].userId, true);
     const name = users.length && users[0].displayName || convs[0].topic;
-    conv.ask(`<speak>Ready to send <break time="0.5s"/>${message}<break time="0.5s"/> to ${name}?</speak>`, new Suggestions('Yes', `No, don't send it`));
+    conv.ask(`<speak>Ready to send <break time='0.5s'/>${message}<break time='0.5s'/> to ${name}?</speak>`, new Suggestions('Yes', `No, don't send it`));
     conv.contexts.set('sendmessage_send', 5, {
       convId: convId || convs[0].convId
     });
@@ -105,7 +105,7 @@ app.intent('send.message - collect.target', async conv => {
   const { convId } = users.length && await circuit.getDirectConversationWithUser(users[0].userId, true);
   const { message } = conv.contexts.input['sendmessage_data'].parameters;
   const name = users.length && users[0].displayName || convs[0].topic;
-  conv.ask(`<speak>Ready to send <break time="0.5s"/>${message}<break time="0.5s"/> to ${name}?</speak>`, new Suggestions('Yes', `No, don't send it`));
+  conv.ask(`<speak>Ready to send <break time='0.5s'/>${message}<break time='0.5s'/> to ${name}?</speak>`, new Suggestions('Yes', `No, don't send it`));
   conv.contexts.set('sendmessage_send', 5, {
     convId: convId || convs[0].convId
   });
@@ -277,6 +277,154 @@ async function getCircuit(conv) {
 }
 
 /**
+ * Traverses through the presence types to set to available or dnd
+ */
+async function traversePresence(conv) {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const { presenceType } = conv.contexts.input['setpresence_data'].parameters;
+  const presence = presenceType.toLowerCase();
+  const { untilTime } = conv.contexts.input['setpresence_data'].parameters;
+  const { duration } = conv.contexts.input['setpresence_data'].parameters;
+
+  if (presence === 'available') {
+    await circuit.setPresenceAvailable();
+    conv.ask(`Your online presence is set to ${presence}. Anything Else?`);
+    conv.contexts.set('anything_else', 5);
+  } else if (presence === 'dnd' || presence === 'do not disturb') { 
+      if (untilTime || duration) {
+        await circuit.setPresenceDnd(untilTime, duration);
+        conv.ask(`Your online presence is set to ${presence}. Anything Else?`);
+        conv.contexts.set('anything_else', 5);
+      } else {
+          conv.ask(`How long would you like to be set to DND?`);
+          conv.contexts.set('setdnd_time', 5);
+      }
+  } else {
+      conv.ask(`I didn't catch the presence. What would you like to be set to?`);
+      conv.contexts.set('setPresence_getPresence', 5);
+  }
+  
+}
+
+/**
+ * Set a logged on user's presence
+ */
+app.intent('set.presence', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  await traversePresence(conv);
+});
+
+/**
+ * Collects the presenceType of an online user and sets the presence
+ */
+app.intent('set.presence - collect presenceType', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  await traversePresence(conv);
+});
+
+/**
+ * Set a logged on user to dnd
+*/
+app.intent('set.presence - dnd', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  const { untilTime } = conv.contexts.input['setpresence_data'].parameters;
+  const { duration } = conv.contexts.input['setpresence_data'].parameters;
+
+  await circuit.setPresenceDnd(untilTime, duration);
+  conv.ask(`Your online presence is set to Do Not Disturb. Anything else?`);
+  conv.contexts.set('anything_else', 5);
+});
+
+/**
+ * Retrieves the presence of an online user
+*/
+app.intent('get.presence', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  const userPresence = await circuit.getUserPresence();
+  conv.ask(`Your online presence is set to ${userPresence}. Anything else?`);
+  conv.contexts.set('anything_else', 5);
+});
+
+/**
+ * Retrieves the remaining time left in dnd
+*/
+app.intent('get.dndTime', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  const userPresence = await circuit.getUserPresence();
+
+  if (userPresence === Circuit.Enums.PresenceState.DND) {
+    const timeLeft = await circuit.getDndTime();
+    const mLeft = Math.floor((timeLeft - Date.now()) / 60000);//sets the time left in minutes
+
+    if (mLeft > 60) {
+      conv.ask(`You are set to "Do Not Disturb" for another ${Math.floor(mLeft / 60)} hour(s) and ${Math.floor(((mLeft / 60)- Math.floor(mLeft / 60)) * 60)} minute(s). Anything Else?`);
+      conv.contexts.set('anything_else', 5);
+    } else  {
+      conv.ask(`You are set to "Do Not Disturb" for another ${mLeft} minute(s). Would there be anything else?`);
+      conv.contexts.set('anything_else', 5);
+    } 
+  } else  {
+      conv.ask('It seems that you are not set to Do Not Disturb. Would you like to do anything else?');
+      conv.contexts.set('anything_else', 5);
+  }
+});
+
+/**
+ * Set a logged on user's status message
+*/
+app.intent('set.statusmessage', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+  const { statusMessage } = conv.contexts.input['setstatusmessage_data'].parameters;
+
+  await circuit.client.setStatusMessage(statusMessage)
+  conv.ask(`Your status message is now set to '${statusMessage}'. May I do anything else for you today?`);
+  conv.contexts.set('anything_else', 5);
+});
+
+/**
+ * Retrieve a logged on user's status message
+*/
+app.intent('get.statusmessage', async conv => {
+  const circuit = await getCircuit(conv);
+  if (!circuit) {
+    return;
+  }
+
+  const statusMessage = await circuit.client.getStatusMessage();
+  if (statusMessage) {
+    conv.ask(`Your status message is '${statusMessage}'. May I do anything else for you today?`);
+    conv.contexts.set('anything_else', 5);
+  } else {
+      conv.ask(`It appears your status message is blank. May I do anything else for you today?`);
+      conv.contexts.set('anything_else', 5);
+      conv.ask(new Suggestions('Set status Message', 'Yes, please', 'No, thank you'));
+  }
+
+});
+
+/**
  * Create Circuit session
  */
 function createSession(user) {
@@ -330,4 +478,3 @@ function destroy() {;
   sessions = [];
   return Promise.all(promises);
 }
-
