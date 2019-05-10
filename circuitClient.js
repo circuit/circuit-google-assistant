@@ -26,10 +26,12 @@ class CircuitClient {
     this.getConversationsByIds = this.client.getConversationsByIds;
     this.getDevices = this.client.getDevices;
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
+    this.getPresence = this.client.getPresence;
     this.getStartedCalls = this.client.getStartedCalls;
     this.joinConference = this.client.joinConference;
     this.removeParticipant = this.client.removeParticipant;
     this.sendClickToCallRequest = this.client.sendClickToCallRequest;
+    this.setPresence = this.client.setPresence;
 
     // Properties
     Object.defineProperty(this, 'user', {
@@ -122,6 +124,58 @@ class CircuitClient {
         searchTerm: query
       }]);
     });
+  }
+
+  async setPresenceAvailable() {
+    const statusMsg = await this.client.getStatusMessage();
+    try {
+      return this.client.setPresence({
+        state: Circuit.Enums.PresenceState.AVAILABLE,
+        statusMessage: statusMsg
+      });
+    } catch {
+        console.log("Could not set user to available");
+    }
+  }
+  
+  async setPresenceDnd(untilTime, duration) {
+    const statusMsg = await this.client.getStatusMessage();
+    if (untilTime !== '') {
+      untilTime = new Date(untilTime).getTime();
+      return this.client.setPresence({
+        state: Circuit.Enums.PresenceState.DND,
+        dndUntil: untilTime,
+        statusMessage: statusMsg
+      });
+    } else if (duration !== '') {
+        if (duration.unit === 'min') {
+          return this.client.setPresence({
+            state: Circuit.Enums.PresenceState.DND,
+            dndUntil: Date.now() + (60000 * duration.amount), //sets to 1 minute in ms * amount of minutes
+            statusMessage: statusMsg
+          });
+        } else if (duration.unit === 'h') {
+          return this.client.setPresence({
+            state: Circuit.Enums.PresenceState.DND,
+            dndUntil: Date.now() + (3600000 * duration.amount), //sets to 1 hour in ms * amount of hours
+            statusMessage: statusMsg
+          });
+        } else {
+          console.log('User has not entered a time in hours or minutes. Presence cannot be set.');
+        } 
+    }
+  }
+
+  getDndTime() {
+    return this.client.getPresence(this.user.userId)
+      .then(res => res[0].dndUntil)
+      .catch(console.error);
+  }
+
+  getUserPresence() {
+    return this.client.getPresence(this.user.userId)
+      .then(res => res[0].state)
+      .catch(console.error);
   }
 
   /**
