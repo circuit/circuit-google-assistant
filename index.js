@@ -13,7 +13,7 @@ const SESSION_TIMEOUT = 5 * 60 * 1000; // 5min session timeout
 
 const sessions = {}; // Active sessions
 
-const app = dialogflow({clientId: CLIENT_ID});
+const app = dialogflow({clientId: CLIENT_ID, scope: 'ALL'});
 
 // Create express app to for handling the /_ah/start request posted
 // by AppEngine
