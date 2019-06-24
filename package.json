@@ -13,7 +13,7 @@
     "bunyan": "^1.8.12",
     "circuit-sdk": "^1.2.4200",
     "express": "4.13.3",
-    "express-basic-auth": "^0.2.3",
+    "express-basic-auth": "^1.1.7",
     "fuse.js": "^2.7.4"
   },
   "repository": {
