@@ -8,13 +8,13 @@
     "dev": "NODE_ENV=development node index.js"
   },
   "dependencies": {
-    "actions-on-google": "^2.3.0",
-    "body-parser": "^1.18.3",
+    "actions-on-google": "^2.7.1",
+    "body-parser": "^1.19.0",
     "bunyan": "^1.8.12",
-    "circuit-sdk": "^1.2.4200",
-    "express": "4.13.3",
-    "express-basic-auth": "^1.1.7",
-    "fuse.js": "^2.7.4"
+    "circuit-sdk": "^1.2.6002",
+    "express": "4.17.1",
+    "express-basic-auth": "^1.2.0",
+    "fuse.js": "^3.4.5"
   },
   "repository": {
     "type": "git",
