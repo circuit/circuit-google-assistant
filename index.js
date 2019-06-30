@@ -6,14 +6,14 @@ const CircuitClient = require('./circuitClient');
 
 // Client ID for IMPLICIT app on Circuit. Same ID needs to be defined
 // in Account Linking of your project at console.actions.google.com
-const CLIENT_ID = 'd34edad8cda6433bb062f0671f58c232';
+const CLIENT_ID = 'fd5b604003b94aef84811bb06d03b313';
 
 // Circuit session timeout
 const SESSION_TIMEOUT = 5 * 60 * 1000; // 5min session timeout
 
 const sessions = {}; // Active sessions
 
-const app = dialogflow({ clientId: CLIENT_ID });
+const app = dialogflow({clientId: CLIENT_ID, scope: 'ALL'});
 
 // Create express app to for handling the /_ah/start request posted
 // by AppEngine
