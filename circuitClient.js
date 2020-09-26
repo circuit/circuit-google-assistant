@@ -6,7 +6,7 @@ const Circuit = require('circuit-sdk');
  * Wrapper class for Circuit.Client
  */
 class CircuitClient {
-  constructor (credentials) {
+  constructor(credentials) {
     // Create client instance
     this.client = new Circuit.Client(credentials);
 
@@ -21,14 +21,16 @@ class CircuitClient {
     }
 
     // Function bindings
-    this.sendClickToCallRequest = this.client.sendClickToCallRequest;
-    this.getStartedCalls = this.client.getStartedCalls;
+    this.addParticipant = this.client.addParticipant;
+    this.addTextItem = this.client.addTextItem;
     this.getConversationsByIds = this.client.getConversationsByIds;
     this.getDevices = this.client.getDevices;
-    this.joinConference = this.client.joinConference;
     this.getDirectConversationWithUser = this.client.getDirectConversationWithUser;
-    this.addTextItem = this.client.addTextItem;
     this.getPresence = this.client.getPresence;
+    this.getStartedCalls = this.client.getStartedCalls;
+    this.joinConference = this.client.joinConference;
+    this.removeParticipant = this.client.removeParticipant;
+    this.sendClickToCallRequest = this.client.sendClickToCallRequest;
     this.setPresence = this.client.setPresence;
 
     // Properties
@@ -36,7 +38,6 @@ class CircuitClient {
       get: _ => { return this.client.loggedOnUser; }
     });
   }
-
 
   /////////////////////////////////////
   /// Public functions
@@ -100,7 +101,7 @@ class CircuitClient {
 
       async function searchStatusHandler(evt) {
         // Indicates is search is finished
-        console.log('searchStatus', evt)
+        console.log('searchStatus', evt);
         if (evt.data.searchId !== searchId) {
           return;
         }
@@ -181,8 +182,8 @@ class CircuitClient {
    * logon
    */
   logon (accessToken) {
-    return this.client.logon(accessToken ? {accessToken: accessToken} : undefined)
-      .then(user => console.log(`Logged on to Circuit: ${user.displayName}`))
+    return this.client.logon(accessToken ? { accessToken: accessToken } : undefined)
+      .then(user => console.log(`Logged on to Circuit: ${user.displayName}`));
   }
 
   /**
@@ -195,14 +196,13 @@ class CircuitClient {
     const displayName = this.client.loggedOnUser.displayName;
     return this.client.logout()
       .then(_ => {
-        console.log(`Logged out of Circuit: ${displayName}`)
+        console.log(`Logged out of Circuit: ${displayName}`);
       });
   }
 
   /////////////////////////////////////
   /// Private functions
   /////////////////////////////////////
-
 }
 
 module.exports = CircuitClient;
